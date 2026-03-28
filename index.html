@@ -909,9 +909,11 @@
         }, 0);
         total = Math.round(total * 100) / 100;
 
+        // Use the normal showPrompt (not the isMoney version) to avoid conflicts
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
                    (cashInput) => {
+
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
                 showMessage("Please enter a valid amount.");
@@ -919,16 +921,15 @@
                 return;
             }
 
-            const totalCents = Math.round(total * 100);
-            const cashCents  = Math.round(cash * 100);
+            cash = Math.round(cash * 100) / 100;
 
-            if (cashCents < totalCents) {
+            if (cash < total - 0.01) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
 
-            const change = (cashCents - totalCents) / 100;
+            const change = Math.round((cash - total) * 100) / 100;
 
             // Deduct stock locally
             cart.forEach(cartItem => {
@@ -943,6 +944,7 @@
 
             saveInventoryToLocal();
             addToDailyTotal(total);
+            markAsPendingSync();
 
             // Log transaction
             const now = new Date();
@@ -957,20 +959,12 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
-            // === AUTO-SYNC AFTER SALE (silent) ===
-            const syncSuccess = await syncStockToSheet(true);
-
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
-
-                // If auto-sync failed, show the manual button
-                if (!syncSuccess) {
-                    markAsPendingSync();
-                }
             });
-        }, true);
+        });
     }
 
     function updateSyncButton() {
