@@ -911,7 +911,7 @@
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
-                   async (cashInput) => {   // ← made async
+                   (cashInput) => {
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
                 showMessage("Please enter a valid amount.");
