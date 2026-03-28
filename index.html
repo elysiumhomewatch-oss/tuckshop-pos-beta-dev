@@ -886,22 +886,35 @@ function barcodesMatch(a, b) {
         });
     }
 
-        async function checkout() {
+            async function checkout() {
         if (!cart.length) return;
 
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        // Calculate total with proper rounding to 2 decimal places
+        let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        total = Math.round(total * 100) / 100;   // Fix floating point issues
 
-        showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cash) => {
-            if (cash < total) {                    // ← Changed from <= to <
-                showMessage("Not enough cash received!");
+        showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
+            let cash = parseFloat(cashInput);
+            if (isNaN(cash)) {
+                showMessage("Please enter a valid amount.");
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
 
-            const change = cash - total;
+            // Round cash to 2 decimals too
+            cash = Math.round(cash * 100) / 100;
+
+            // FIXED: Use >= instead of > and proper rounding
+            if (cash < total - 0.001) {   // Small tolerance for floating point
+                showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
+                if (completeBtn) completeBtn.disabled = false;
+                return;
+            }
+
+            const change = Math.round((cash - total) * 100) / 100;
 
             // Deduct stock locally
             cart.forEach(cartItem => {
@@ -914,7 +927,6 @@ function barcodesMatch(a, b) {
                 }
             });
 
-            // Mark pending sync
             markAsPendingSync();
 
             // Log transaction
