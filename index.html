@@ -892,9 +892,9 @@ function barcodesMatch(a, b) {
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Calculate total with proper rounding to 2 decimal places
+        // Calculate total safely
         let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
-        total = Math.round(total * 100) / 100;   // Fix floating point issues
+        total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
             let cash = parseFloat(cashInput);
@@ -904,11 +904,11 @@ function barcodesMatch(a, b) {
                 return;
             }
 
-            // Round cash to 2 decimals too
+            // Round cash safely too
             cash = Math.round(cash * 100) / 100;
 
-            // FIXED: Use >= instead of > and proper rounding
-            if (cash < total - 0.001) {   // Small tolerance for floating point
+            // FIXED: Proper money comparison with tolerance
+            if (cash + 0.001 < total) {   // Allow tiny floating point differences
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
