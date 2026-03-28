@@ -909,11 +909,9 @@
         }, 0);
         total = Math.round(total * 100) / 100;
 
-        // Use the normal showPrompt (not the isMoney version) to avoid conflicts
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
-                   (cashInput) => {
-
+                   async (cashInput) => {   // ← made async
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
                 showMessage("Please enter a valid amount.");
@@ -921,15 +919,16 @@
                 return;
             }
 
-            cash = Math.round(cash * 100) / 100;
+            const totalCents = Math.round(total * 100);
+            const cashCents  = Math.round(cash * 100);
 
-            if (cash < total - 0.01) {
+            if (cashCents < totalCents) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
 
-            const change = Math.round((cash - total) * 100) / 100;
+            const change = (cashCents - totalCents) / 100;
 
             // Deduct stock locally
             cart.forEach(cartItem => {
@@ -944,7 +943,6 @@
 
             saveInventoryToLocal();
             addToDailyTotal(total);
-            markAsPendingSync();
 
             // Log transaction
             const now = new Date();
@@ -959,12 +957,20 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
+            // === AUTO-SYNC AFTER SALE (silent) ===
+            const syncSuccess = await syncStockToSheet(true);
+
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
+
+                // If auto-sync failed, show the manual button
+                if (!syncSuccess) {
+                    markAsPendingSync();
+                }
             });
-        });
+        }, true);
     }
 
     function updateSyncButton() {
@@ -1427,5 +1433,5 @@
         });
     });
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e38f19b6ed8a148',t:'MTc3NDcyNTExOQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
