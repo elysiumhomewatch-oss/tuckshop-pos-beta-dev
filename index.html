@@ -904,14 +904,17 @@
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
+        // Safe total calculation
         let total = cart.reduce((sum, item) => {
             return sum + (Number(item.price) * item.qty);
         }, 0);
         total = Math.round(total * 100) / 100;
 
+        // Show cash prompt (non-async callback)
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
-                   async (cashInput) => {   // ← made async
+                   (cashInput) => {
+
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
                 showMessage("Please enter a valid amount.");
@@ -919,18 +922,18 @@
                 return;
             }
 
-            const totalCents = Math.round(total * 100);
-            const cashCents  = Math.round(cash * 100);
+            cash = Math.round(cash * 100) / 100;
 
-            if (cashCents < totalCents) {
+            // Reliable money comparison
+            if (cash < total - 0.01) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
 
-            const change = (cashCents - totalCents) / 100;
+            const change = Math.round((cash - total) * 100) / 100;
 
-            // Deduct stock locally
+            // === Deduct stock locally ===
             cart.forEach(cartItem => {
                 const cartBarcodeClean = String(cartItem.barcode || "").trim().replace(/^0+/, '');
                 const item = inventory.find(i => 
@@ -943,6 +946,7 @@
 
             saveInventoryToLocal();
             addToDailyTotal(total);
+            markAsPendingSync();
 
             // Log transaction
             const now = new Date();
@@ -957,20 +961,19 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
-            // === AUTO-SYNC AFTER SALE (silent) ===
-            const syncSuccess = await syncStockToSheet(true);
-
+            // Show success message first (this is what the user sees immediately)
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
 
-                // If auto-sync failed, show the manual button
-                if (!syncSuccess) {
+                // Silent background sync after success message
+                syncStockToSheet(true).catch(e => {
+                    console.error("Background sync failed", e);
                     markAsPendingSync();
-                }
+                });
             });
-        }, true);
+        });
     }
 
     function updateSyncButton() {
