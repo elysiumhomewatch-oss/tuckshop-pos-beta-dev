@@ -219,7 +219,9 @@
             <div id="transaction-log"></div>
         </div>
 
-                    <button class="btn btn-gray" onclick="syncStockToSheet()">🔄 Sync Stock to Sheet</button>
+                    <button id="sync-btn" class="btn btn-gray" onclick="syncStockToSheet()" style="display: none;">
+                        🔄 Sync Stock to Sheet
+                    </button>
     </div>
 
     <!-- STOCK TAB -->
@@ -302,6 +304,7 @@
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxolWQptu1bI0dOm3AVPt254doF0NB6mjfk4KbxwrvzzRSnTLLUgph2ZNwNcDDlJxKusg/exec";
     const DAILY_LIMIT = 100;
     const MAX_CATEGORIES = 15;
+       
 
     // ====================== UTILITY ======================
     function normalizeBarcode(barcode) {
@@ -336,6 +339,7 @@ function barcodesMatch(a, b) {
     let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
     let dailyTotalKey = 'tuckshop_daily_total_' + new Date().toDateString();
     let floatKey = 'tuckshop_starting_float_' + new Date().toDateString();
+    let hasPendingSync = false;   // NEW: Track if sync is needed
 
     const elements = {
         manualSearch: document.getElementById('manual-search'),
@@ -909,7 +913,10 @@ function barcodesMatch(a, b) {
                     item.stockQty = Math.max(0, (item.stockQty || 0) - cartItem.qty);
                 }
             });
-            // === ADD THIS RIGHT AFTER THE cart.forEach stock deduction ===
+            // Mark that we have local changes that need syncing
+            markAsPendingSync();
+            
+           
 const sheetUrl = document.getElementById('user-sheet-url').value.trim();
 if (sheetUrl && cart.length) {
     const soldItems = cart.map(cartItem => {
@@ -953,8 +960,23 @@ if (sheetUrl && cart.length) {
         });
     }
 
+
+        // Show / Hide sync button based on pending changes
+    function updateSyncButton() {
+        const syncBtn = document.getElementById('sync-btn');
+        if (syncBtn) {
+            syncBtn.style.display = hasPendingSync ? 'block' : 'none';
+        }
+    }
+
+    // Call this after any local stock change (sale, manual edit, etc.)
+    function markAsPendingSync() {
+        hasPendingSync = true;
+        updateSyncButton();
+    }
+
     // ====================== MANUAL SYNC BUTTON ======================
-    async function syncStockToSheet() {
+        async function syncStockToSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) {
             showMessage("Please set your Google Sheet URL in Settings first.");
@@ -980,8 +1002,12 @@ if (sheetUrl && cart.length) {
                     body: JSON.stringify({ action: "addStock", data: item, sheetUrl: sheetUrl })
                 });
             }
+
+            hasPendingSync = false;           // ← Reset flag
+            updateSyncButton();               // ← Hide button
+
             showMessage("✅ Stock successfully synced to sheet.", () => {
-                fetchInventoryFromSheet(); // Optional refresh
+                fetchInventoryFromSheet(); 
             });
         } catch (e) {
             console.error(e);
@@ -1299,8 +1325,10 @@ if (sheetUrl && cart.length) {
                 const defaultVal = cat === "Snacks" ? 20 : cat === "Drinks" ? 15 : 10;
                 localStorage.setItem('markup-' + cat, defaultVal);
             }
-        });
+        }); 
+        updateSyncButton();
     };
+   
 
 // ====================== PWA INSTALL & FULL-SCREEN SUPPORT ======================
 let deferredPrompt = null;
