@@ -414,25 +414,33 @@ function barcodesMatch(a, b) {
         };
     }
 
-        function showPrompt(message, defaultValue, onSubmit) {
-        const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Quantity";
-        document.getElementById('modal-body').innerHTML = `
-            <p>${message}</p>
-            <input type="number" step="1" min="1" id="modal-input" class="modal-input" value="${defaultValue || '1'}">
-        `;
-        document.getElementById('modal-buttons').innerHTML = `
-            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" id="prompt-ok">Add</button>
-        `;
-        modal.style.display = 'flex';
+        function showPrompt(message, defaultValue, onSubmit, isMoney = false) {
+    const modal = document.getElementById('custom-modal');
+    document.getElementById('modal-title').textContent = isMoney ? "Cash Amount" : "Quantity";
+    document.getElementById('modal-body').innerHTML = `
+        <p>${message}</p>
+        <input type="number" 
+               step="${isMoney ? '0.01' : '1'}" 
+               min="${isMoney ? '0' : '1'}" 
+               id="modal-input" 
+               class="modal-input" 
+               value="${defaultValue || (isMoney ? '0.00' : '1')}">
+    `;
+    document.getElementById('modal-buttons').innerHTML = `
+        <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-save" id="prompt-ok">${isMoney ? 'Confirm Payment' : 'Add'}</button>
+    `;
+    modal.style.display = 'flex';
 
-        document.getElementById('prompt-ok').onclick = () => {
-            const value = parseInt(document.getElementById('modal-input').value) || 1;
-            closeModal();
-            onSubmit(value);
-        };
-    }
+    document.getElementById('prompt-ok').onclick = () => {
+        const inputEl = document.getElementById('modal-input');
+        const value = isMoney 
+            ? parseFloat(inputEl.value) || 0 
+            : parseInt(inputEl.value) || 1;
+        closeModal();
+        onSubmit(value);
+    };
+}
 
     // ====================== INVENTORY & DAILY ======================
     function loadInventoryFromLocal() {
@@ -1021,8 +1029,11 @@ function barcodesMatch(a, b) {
     function showCashUp() {
         const expectedSales = dailyTotal;
         const expectedCash = startingFloat + expectedSales;
-        showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, expectedCash.toFixed(2), (cashCounted) => {
-            showPrompt("Card payments total:", "0", (cardTotal) => {
+        showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, 
+           expectedCash.toFixed(2), 
+           (cashCounted) => { ... }, 
+           true);
+            showPrompt("Card payments total:", "0", (cardTotal) => { ... }, true);
                 const actual = cashCounted + cardTotal;
                 const variance = actual - expectedCash;
                 let msg = `CASH UP SUMMARY\n\n`;
