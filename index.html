@@ -300,17 +300,18 @@
 
     // ====================== UTILITY ======================
     function normalizeBarcode(barcode) {
-        return String(barcode || "").trim().replace(/^0+/, '');
-    }
+    return String(barcode || "").trim();   // keep full value
+}
 
-    function barcodesMatch(a, b) {
-        const na = normalizeBarcode(a);
-        const nb = normalizeBarcode(b);
-        if (na === nb) return true;
-        if (na.length === 13 && na.startsWith('0') && nb === na.substring(1)) return true;
-        if (nb.length === 13 && nb.startsWith('0') && na === nb.substring(1)) return true;
-        return false;
-    }
+function barcodesMatch(a, b) {
+    const na = normalizeBarcode(a);
+    const nb = normalizeBarcode(b);
+    if (na === nb) return true;
+    // Handle EAN-13 <-> UPC-A
+    if (na.length === 13 && na.startsWith('0') && nb === na.substring(1)) return true;
+    if (nb.length === 13 && nb.startsWith('0') && na === nb.substring(1)) return true;
+    return false;
+}
 
     // ====================== GLOBAL VARIABLES ======================
     let inventory = [];
@@ -321,9 +322,6 @@
     let lastDetectionTime = 0;
     let currentMediaStream = null;
     const DETECTION_COOLDOWN_MS = 1800;
-
-    let lastScanTime = 0;
-    const SCAN_COOLDOWN_MS = 2000;   // 2 seconds pause between scans
 
     let dailyCount = 0;
     let dailyTotal = 0;
@@ -380,7 +378,9 @@
         const modal = document.getElementById('custom-modal');
         document.getElementById('modal-title').textContent = "Message";
         document.getElementById('modal-body').innerHTML = `<p>${message}</p>`;
-        document.getElementById('modal-buttons').innerHTML = `<button class="btn btn-save" id="message-ok-btn">OK</button>`;
+        document.getElementById('modal-buttons').innerHTML = `
+            <button class="btn btn-save" id="message-ok-btn">OK</button>
+        `;
         modal.style.display = 'flex';
 
         document.getElementById('message-ok-btn').onclick = () => {
@@ -405,7 +405,7 @@
         };
     }
 
-    function showPrompt(message, defaultValue, onSubmit) {
+        function showPrompt(message, defaultValue, onSubmit) {
         const modal = document.getElementById('custom-modal');
         document.getElementById('modal-title').textContent = "Quantity";
         document.getElementById('modal-body').innerHTML = `
@@ -423,41 +423,6 @@
             closeModal();
             onSubmit(value);
         };
-    }
-
-    // ====================== QUANTITY MODAL AFTER SCAN ======================
-    function showQuantityModal(item) {
-        const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Add to Sale";
-        document.getElementById('modal-body').innerHTML = `
-            <p style="text-align:center; font-size:18px; margin:20px 0 30px;">
-                ${item.name}<br>
-                <strong style="color:var(--success);">R${getPrice(item)}</strong>
-            </p>
-            <div style="display:flex; gap:12px; justify-content:center;">
-                <button class="btn btn-save" style="width:auto; padding:14px 32px;" onclick="addSingleItem('${item.barcode}')">Add</button>
-                <button class="btn btn-gray" style="width:auto; padding:14px 32px;" onclick="showCustomQuantity('${item.barcode}')">Multiples</button>
-            </div>
-        `;
-        document.getElementById('modal-buttons').innerHTML = `
-            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-        `;
-        modal.style.display = 'flex';
-    }
-
-    function addSingleItem(barcode) {
-        closeModal();
-        addToCart(barcode);
-    }
-
-    function showCustomQuantity(barcode) {
-        closeModal();
-        showPrompt("Enter quantity to add:", "1", (qty) => {
-            if (qty < 1) return;
-            for (let i = 0; i < qty; i++) {
-                addToCart(barcode);
-            }
-        });
     }
 
     // ====================== INVENTORY & DAILY ======================
@@ -745,6 +710,7 @@
         if (!sheetUrl) {
             showMessage("Please set your Google Sheet URL in Settings first.");
             return;
+            fetchInventoryFromSheet();
         }
 
         const data = {
@@ -793,6 +759,41 @@
             saveBtn.disabled = false;
             statusEl.textContent = "";
         }
+    }
+
+    // ====================== QUANTITY MODAL AFTER SCAN ======================
+    function showQuantityModal(item) {
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').textContent = "Add to Sale";
+        document.getElementById('modal-body').innerHTML = `
+            <p style="text-align:center; font-size:18px; margin:20px 0 30px;">
+                ${item.name}<br>
+                <strong style="color:var(--success);">R${getPrice(item)}</strong>
+            </p>
+            <div style="display:flex; gap:12px; justify-content:center;">
+                <button class="btn btn-save" style="width:auto; padding:14px 32px;" onclick="addSingleItem('${item.barcode}')">Add</button>
+                <button class="btn btn-gray" style="width:auto; padding:14px 32px;" onclick="showCustomQuantity('${item.barcode}')">Multiples</button>
+            </div>
+        `;
+        document.getElementById('modal-buttons').innerHTML = `
+            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function addSingleItem(barcode) {
+        closeModal();
+        addToCart(barcode);   // Adds exactly one
+    }
+
+    function showCustomQuantity(barcode) {
+        closeModal();
+        showPrompt("Enter quantity to add:", "1", (qty) => {
+            if (qty < 1) return;
+            for (let i = 0; i < qty; i++) {
+                addToCart(barcode);
+            }
+        });
     }
 
     // ====================== SALE FUNCTIONS ======================
@@ -872,6 +873,7 @@
 
             const change = cash - total;
 
+            // Deduct stock locally only
             cart.forEach(cartItem => {
                 const cartBarcodeClean = String(cartItem.barcode || "").trim().replace(/^0+/, '');
                 const item = inventory.find(i => 
@@ -881,7 +883,27 @@
                     item.stockQty = Math.max(0, (item.stockQty || 0) - cartItem.qty);
                 }
             });
+            // === ADD THIS RIGHT AFTER THE cart.forEach stock deduction ===
+const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+if (sheetUrl && cart.length) {
+    const soldItems = cart.map(cartItem => {
+        const norm = normalizeBarcode(cartItem.barcode);
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === norm);
+        return { barcode: norm, stockQty: item ? item.stockQty : 0 };
+    });
 
+    fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+            action: "updateSoldItems",
+            sheetUrl: sheetUrl,
+            soldItems: soldItems
+        })
+    }).catch(e => console.error("Stock sync failed", e));
+}
+
+            // Log transaction
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             transactions.unshift({
@@ -905,7 +927,7 @@
         });
     }
 
-    // ====================== MANUAL SYNC ======================
+    // ====================== MANUAL SYNC BUTTON ======================
     async function syncStockToSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) {
@@ -933,7 +955,7 @@
                 });
             }
             showMessage("✅ Stock successfully synced to sheet.", () => {
-                fetchInventoryFromSheet();
+                fetchInventoryFromSheet(); // Optional refresh
             });
         } catch (e) {
             console.error(e);
@@ -968,6 +990,124 @@
         });
     }
 
+    // ====================== SETTINGS & SYNC ======================
+    function createNewSheet() {
+        showConfirm("Open new Google Sheet?\nSet sharing to 'Anyone with the link - Editor' after it opens.", () => {
+            document.getElementById('sale-status').textContent = "Opening new sheet...";
+            window.open("https://docs.google.com/spreadsheets/create", "_blank");
+        });
+    }
+
+    function saveUserSheetURL() {
+        const url = document.getElementById('user-sheet-url').value.trim();
+        if (url) {
+            localStorage.setItem('user-sheet-url', url);
+            showMessage("✅ Sheet URL saved!", () => fetchInventoryFromSheet());
+        } else {
+            showMessage("Please enter your Google Sheet URL.");
+        }
+    }
+
+    function loadSettings() {
+        document.getElementById('user-sheet-url').value = localStorage.getItem('user-sheet-url') || '';
+    }
+
+    async function fetchInventoryFromSheet() {
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) return showMessage("Please enter your Google Sheet URL first.");
+
+        elements.saleStatus.textContent = "Loading from sheet...";
+
+        try {
+            const res = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "getInventory", sheetUrl: sheetUrl })
+            });
+
+            const data = await res.json();
+            inventory = data.map(row => ({
+                barcode: normalizeBarcode(row.Barcode || row.barcode),
+                name: String(row.Name || row.name || ""),
+                cost: parseFloat(row.Cost || row.cost || 0),
+                category: String(row.Category || row.category || "Other"),
+                customMarkup: parseFloat(row.CustomMarkup || 0),
+                stockQty: parseInt(row.StockQty || 0),
+                minStockLevel: parseInt(row.MinStockLevel || 5),
+                expiryDate: row.ExpiryDate || ""
+            })).filter(item => item.barcode);
+
+            saveInventoryToLocal();
+            elements.saleStatus.textContent = `✅ Loaded ${inventory.length} items from sheet`;
+            populateCategoryDropdown();
+            loadCategoriesFromSheet();
+        } catch (e) {
+            elements.saleStatus.textContent = "❌ Failed to load from sheet";
+        }
+    }
+
+    async function importMasterProducts() {
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) return showMessage("Please enter your Google Sheet URL first.");
+
+        showConfirm("Import from Master Database?\n\nCost prices will be set to 0.", async () => {
+            const statusEl = document.getElementById('sale-status');
+            statusEl.textContent = "Importing from Master Database...";
+
+            try {
+                const res = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "importMaster", sheetUrl: sheetUrl })
+                });
+
+                const masterItems = await res.json();
+
+                let imported = 0;
+                const existing = new Set(inventory.map(i => normalizeBarcode(i.barcode)));
+
+                for (const m of masterItems) {
+                    const norm = normalizeBarcode(m.barcode);
+                    if (!norm || existing.has(norm)) continue;
+
+                    const newItem = {
+                        barcode: norm,
+                        name: String(m.name || ""),
+                        cost: 0,
+                        category: String(m.category || "Other"),
+                        customMarkup: 0,
+                        stockQty: 0,
+                        minStockLevel: 5,
+                        expiryDate: ""
+                    };
+
+                    await saveSingleItemToSheet(newItem);
+                    inventory.push(newItem);
+                    existing.add(norm);
+                    imported++;
+                }
+
+                saveInventoryToLocal();
+                statusEl.textContent = `✅ Imported ${imported} products`;
+                showMessage(`Successfully imported ${imported} products.\n\nNote: Cost prices are 0. Please update them in the Stock tab.`);
+            } catch (e) {
+                showMessage("Import failed: " + e.message);
+            }
+        });
+    }
+
+    async function saveSingleItemToSheet(item) {
+        const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+        if (!sheetUrl) return;
+        try {
+            await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "addStock", data: item, sheetUrl: sheetUrl })
+            });
+        } catch (e) {}
+    }
+
     // ====================== SCANNER (html5-qrcode) ======================
     let html5QrCode = null;
 
@@ -979,27 +1119,42 @@
 
         currentScanMode = mode;
 
-        if (html5QrCode) await stopScanner();
+        // Stop any previous instance
+        if (html5QrCode) {
+            await stopScanner();
+        }
 
         html5QrCode = new Html5Qrcode("interactive");
 
-        const config = { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+        const config = {
+            fps: 15,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            disableFlip: false
+        };
 
         try {
             document.getElementById('interactive').style.display = 'block';
             document.getElementById('stop-scan-btn').style.display = 'block';
 
+            // Get available cameras and prefer back camera
             const cameras = await Html5Qrcode.getCameras();
-            const backCamera = cameras.find(c => 
-                c.label.toLowerCase().includes("back") || c.label.toLowerCase().includes("rear")
+            const backCamera = cameras.find(camera => 
+                camera.label.toLowerCase().includes("back") || 
+                camera.label.toLowerCase().includes("rear")
             ) || cameras[0];
 
             await html5QrCode.start(
                 backCamera.id,
                 config,
-                (decodedText) => handleScannedCode(decodedText, mode),
-                () => {}
+                (decodedText, decodedResult) => {
+                    handleScannedCode(decodedText, mode);
+                },
+                (error) => {
+                    // Silent error handling - too noisy otherwise
+                }
             );
+
         } catch (err) {
             console.error(err);
             showMessage("Failed to start camera. Please check permissions.");
@@ -1009,7 +1164,9 @@
 
     async function stopScanner() {
         if (html5QrCode) {
-            try { await html5QrCode.stop(); } catch (e) {}
+            try {
+                await html5QrCode.stop();
+            } catch (e) {}
             html5QrCode = null;
         }
         document.getElementById('interactive').style.display = 'none';
@@ -1017,10 +1174,6 @@
     }
 
     function handleScannedCode(decodedText, mode) {
-        const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN_MS) return;
-        lastScanTime = now;
-
         if (navigator.vibrate) navigator.vibrate(80);
 
         if (mode === 'sale') {
@@ -1031,13 +1184,23 @@
                 showMessage("Item not found in inventory.");
             }
         } else {
+            // Stock mode
             document.getElementById('stock-barcode').value = decodedText;
             autoFillFromBarcode(decodedText);
         }
 
+        // Auto-stop after successful scan in sale mode
         if (mode === 'sale') {
-            setTimeout(() => stopScanner(), 800);
+            setTimeout(() => stopScanner(), 600);
         }
+    }
+
+    function stopScanner() {
+        if (Quagga && isScannerRunning) Quagga.stop();
+        if (currentMediaStream) currentMediaStream.getTracks().forEach(t => t.stop());
+        document.getElementById('interactive').style.display = 'none';
+        document.getElementById('stop-scan-btn').style.display = 'none';
+        isScannerRunning = false;
     }
 
     // ====================== AUTO-FILL & SEARCH ======================
@@ -1116,6 +1279,99 @@
         });
     };
 
+// ====================== PWA INSTALL & FULL-SCREEN SUPPORT ======================
+let deferredPrompt = null;
+
+const installBanner = document.getElementById('install-banner');
+const installBtn = document.getElementById('install-btn');
+
+// Enhanced check for standalone / installed mode
+function checkDisplayMode() {
+    const isStandalone = 
+        window.matchMedia('(display-mode: standalone)').matches || 
+        window.navigator.standalone === true ||
+        document.referrer.includes('android-app') ||   // Some Android cases
+        window.location.href.includes('?standalone');  // Fallback
+
+    console.log('Display mode check - Standalone:', isStandalone);
+
+    if (isStandalone && installBanner) {
+        installBanner.style.display = 'none';
+        console.log('✅ Running in standalone mode - hiding install banner');
+    } else if (installBanner) {
+        installBanner.style.display = 'block';
+    }
+}
+
+// Capture browser install prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('✅ beforeinstallprompt fired - ready for custom install');
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Show banner only if not already in standalone
+    if (installBanner) {
+        installBanner.style.display = 'block';
+    }
+});
+
+// Handle Install Button Click
+if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+            // Fallback message for devices where install is restricted
+            showMessage("Install may not be available on this device.<br><br>" +
+                        "Try these steps:<br>" +
+                        "• On Chrome: Tap menu (⋮) → 'Install app'<br>" +
+                        "• On laptop: Use Chrome menu → 'Install Tuckshop POS...'", 
+                        () => {});
+            return;
+        }
+
+        installBtn.disabled = true;
+        installBtn.textContent = "Installing...";
+
+        try {
+            const result = await deferredPrompt.prompt();
+            console.log('Install prompt outcome:', result.outcome);
+
+            if (result.outcome === 'accepted') {
+                console.log('🎉 User accepted installation');
+            } else {
+                console.log('User dismissed install prompt');
+            }
+        } catch (err) {
+            console.error('Install prompt error:', err);
+        }
+
+        deferredPrompt = null;
+        installBtn.disabled = false;
+        installBtn.textContent = "Add to Home Screen";
+
+        // Hide banner after attempt
+        if (installBanner) installBanner.style.display = 'none';
+    });
+}
+
+// Listen for successful installation
+window.addEventListener('appinstalled', () => {
+    console.log('🎉 Tuckshop POS was successfully installed!');
+    if (installBanner) {
+        installBanner.style.display = 'none';
+    }
+    deferredPrompt = null;
+});
+
+// Final check on load and when display mode changes
+window.addEventListener('load', () => {
+    checkDisplayMode();
+    
+    // Re-check whenever display mode changes (very important for laptops)
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+        console.log('Display mode changed to:', e.matches ? 'standalone' : 'browser');
+        checkDisplayMode();
+    });
+});
 </script>
 </body>
 </html>
