@@ -904,13 +904,16 @@
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Keep your original rounding style
-        let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        let total = cart.reduce((sum, item) => {
+            return sum + (Number(item.price) * item.qty);
+        }, 0);
         total = Math.round(total * 100) / 100;
 
-        // Show prompt - NON-async callback to avoid timing bugs
-        showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
-            
+        // Use the normal showPrompt (not the isMoney version) to avoid conflicts
+        showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
+                   total.toFixed(2), 
+                   (cashInput) => {
+
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
                 showMessage("Please enter a valid amount.");
@@ -956,16 +959,10 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
-            // Show success message FIRST, then do silent sync
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
-
-                // Silent background sync after user sees success
-                syncStockToSheet(true).catch(() => {
-                    markAsPendingSync();
-                });
             });
         });
     }
