@@ -886,15 +886,17 @@ function barcodesMatch(a, b) {
         });
     }
 
-            async function checkout() {
+       async function checkout() {
         if (!cart.length) return;
 
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Calculate total
-        let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
-        total = Math.round(total * 100) / 100;   // Safe rounding
+        // Calculate total and round to 2 decimal places safely
+        let total = cart.reduce((sum, item) => {
+            return sum + (Number(item.price) * item.qty);
+        }, 0);
+        total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
             let cash = parseFloat(cashInput);
@@ -904,10 +906,12 @@ function barcodesMatch(a, b) {
                 return;
             }
 
-            cash = Math.round(cash * 100) / 100;   // Safe rounding for cash too
+            // Round cash to 2 decimal places
+            cash = Math.round(cash * 100) / 100;
 
-            // FIXED COMPARISON - This is the key line
-            if (cash < total - 0.005) {   // Small tolerance (5 cents)
+            // FIXED: More forgiving comparison for money
+            // Accepts exact amount or any amount >= total
+            if (cash < total - 0.01) {   // Allow up to 1 cent tolerance
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
@@ -915,7 +919,7 @@ function barcodesMatch(a, b) {
 
             const change = Math.round((cash - total) * 100) / 100;
 
-            // === Stock Deduction ===
+            // Deduct stock locally
             cart.forEach(cartItem => {
                 const cartBarcodeClean = String(cartItem.barcode || "").trim().replace(/^0+/, '');
                 const item = inventory.find(i => 
@@ -951,7 +955,6 @@ function barcodesMatch(a, b) {
             });
         });
     }
-
 
         // Show / Hide sync button based on pending changes
     function updateSyncButton() {
