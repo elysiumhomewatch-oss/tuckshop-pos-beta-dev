@@ -904,7 +904,6 @@
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Calculate total safely
         let total = cart.reduce((sum, item) => {
             return sum + (Number(item.price) * item.qty);
         }, 0);
@@ -912,7 +911,7 @@
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
-                   (cashInput) => {
+                   async (cashInput) => {
 
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
@@ -923,9 +922,7 @@
 
             cash = Math.round(cash * 100) / 100;
 
-            // RELIABLE COMPARISON - This is the only line we are fixing
-            // Accepts exact amount or any amount that is not clearly less
-            if (cash + 0.009 < total) {   // 0.9 cent tolerance - very forgiving for cents
+            if (cash + 0.009 < total) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
@@ -961,12 +958,20 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
+            // Silent auto-sync after sale
+            const syncSuccess = await syncStockToSheet(true);
+
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
+
+                // If auto-sync failed, keep the manual button visible
+                if (!syncSuccess) {
+                    markAsPendingSync();
+                }
             });
-        }, true);   // keep isMoney = true
+        }, true);
     }
 
     function updateSyncButton() {
