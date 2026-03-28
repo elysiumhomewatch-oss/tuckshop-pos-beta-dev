@@ -19,7 +19,7 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.json">
 
-        <!-- Replace Quagga with html5-qrcode -->
+    <!-- Replace Quagga with html5-qrcode -->
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root { 
@@ -183,12 +183,12 @@
     </nav>
 
     <div id="interactive" class="viewport"></div>
-        <button id="stop-scan-btn" 
-        class="btn btn-danger" 
-        style="display:none; width:100%; margin-top:8px;" 
-        onclick="stopScanner()">
-    Close Camera
-</button>
+    <button id="stop-scan-btn" 
+            class="btn btn-danger" 
+            style="display:none; width:100%; margin-top:8px;" 
+            onclick="stopScanner()">
+        Close Camera
+    </button>
 
     <!-- SALE TAB -->
     <div id="sale-tab" class="tab-content active">
@@ -219,9 +219,9 @@
             <div id="transaction-log"></div>
         </div>
 
-                    <button id="sync-btn" class="btn btn-gray" onclick="syncStockToSheet()" style="display: none;">
-                        🔄 Sync Stock to Sheet
-                    </button>
+        <button id="sync-btn" class="btn btn-gray" onclick="syncStockToSheet()" style="display: none;">
+            🔄 Sync Stock to Sheet
+        </button>
     </div>
 
     <!-- STOCK TAB -->
@@ -304,22 +304,21 @@
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxolWQptu1bI0dOm3AVPt254doF0NB6mjfk4KbxwrvzzRSnTLLUgph2ZNwNcDDlJxKusg/exec";
     const DAILY_LIMIT = 100;
     const MAX_CATEGORIES = 15;
-       
 
     // ====================== UTILITY ======================
     function normalizeBarcode(barcode) {
-    return String(barcode || "").trim();   // keep full value
-}
+        return String(barcode || "").trim();
+    }
 
-function barcodesMatch(a, b) {
-    const na = normalizeBarcode(a);
-    const nb = normalizeBarcode(b);
-    if (na === nb) return true;
-    // Handle EAN-13 <-> UPC-A
-    if (na.length === 13 && na.startsWith('0') && nb === na.substring(1)) return true;
-    if (nb.length === 13 && nb.startsWith('0') && na === nb.substring(1)) return true;
-    return false;
-}
+    function barcodesMatch(a, b) {
+        const na = normalizeBarcode(a);
+        const nb = normalizeBarcode(b);
+        if (na === nb) return true;
+        // Handle EAN-13 <-> UPC-A
+        if (na.length === 13 && na.startsWith('0') && nb === na.substring(1)) return true;
+        if (nb.length === 13 && nb.startsWith('0') && na === nb.substring(1)) return true;
+        return false;
+    }
 
     // ====================== GLOBAL VARIABLES ======================
     let inventory = [];
@@ -339,7 +338,7 @@ function barcodesMatch(a, b) {
     let todayKey = 'tuckshop_free_today_' + new Date().toDateString();
     let dailyTotalKey = 'tuckshop_daily_total_' + new Date().toDateString();
     let floatKey = 'tuckshop_starting_float_' + new Date().toDateString();
-    let hasPendingSync = false;   // NEW: Track if sync is needed
+    let hasPendingSync = false;
 
     const elements = {
         manualSearch: document.getElementById('manual-search'),
@@ -414,33 +413,33 @@ function barcodesMatch(a, b) {
         };
     }
 
-        function showPrompt(message, defaultValue, onSubmit, isMoney = false) {
-    const modal = document.getElementById('custom-modal');
-    document.getElementById('modal-title').textContent = isMoney ? "Cash Amount" : "Quantity";
-    document.getElementById('modal-body').innerHTML = `
-        <p>${message}</p>
-        <input type="number" 
-               step="${isMoney ? '0.01' : '1'}" 
-               min="${isMoney ? '0' : '1'}" 
-               id="modal-input" 
-               class="modal-input" 
-               value="${defaultValue || (isMoney ? '0.00' : '1')}">
-    `;
-    document.getElementById('modal-buttons').innerHTML = `
-        <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-save" id="prompt-ok">${isMoney ? 'Confirm Payment' : 'Add'}</button>
-    `;
-    modal.style.display = 'flex';
+    function showPrompt(message, defaultValue, onSubmit, isMoney = false) {
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').textContent = isMoney ? "Cash Amount" : "Quantity";
+        document.getElementById('modal-body').innerHTML = `
+            <p>${message}</p>
+            <input type="number" 
+                   step="${isMoney ? '0.01' : '1'}" 
+                   min="${isMoney ? '0' : '1'}" 
+                   id="modal-input" 
+                   class="modal-input" 
+                   value="${defaultValue || (isMoney ? '0.00' : '1')}">
+        `;
+        document.getElementById('modal-buttons').innerHTML = `
+            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-save" id="prompt-ok">${isMoney ? 'Confirm Payment' : 'Add'}</button>
+        `;
+        modal.style.display = 'flex';
 
-    document.getElementById('prompt-ok').onclick = () => {
-        const inputEl = document.getElementById('modal-input');
-        const value = isMoney 
-            ? parseFloat(inputEl.value) || 0 
-            : parseInt(inputEl.value) || 1;
-        closeModal();
-        onSubmit(value);
-    };
-}
+        document.getElementById('prompt-ok').onclick = () => {
+            const inputEl = document.getElementById('modal-input');
+            const value = isMoney 
+                ? parseFloat(inputEl.value) || 0 
+                : parseInt(inputEl.value) || 1;
+            closeModal();
+            onSubmit(value);
+        };
+    }
 
     // ====================== INVENTORY & DAILY ======================
     function loadInventoryFromLocal() {
@@ -727,7 +726,6 @@ function barcodesMatch(a, b) {
         if (!sheetUrl) {
             showMessage("Please set your Google Sheet URL in Settings first.");
             return;
-            fetchInventoryFromSheet();
         }
 
         const data = {
@@ -800,7 +798,7 @@ function barcodesMatch(a, b) {
 
     function addSingleItem(barcode) {
         closeModal();
-        addToCart(barcode);   // Adds exactly one
+        addToCart(barcode);
     }
 
     function showCustomQuantity(barcode) {
@@ -814,7 +812,7 @@ function barcodesMatch(a, b) {
     }
 
     // ====================== SALE FUNCTIONS ======================
-        function handleSearch(val) {
+    function handleSearch(val) {
         if (val.length < 2) { 
             elements.searchResults.style.display = 'none'; 
             return; 
@@ -836,26 +834,24 @@ function barcodesMatch(a, b) {
         elements.searchResults.style.display = 'block';
     }
 
-    // New function: Show quantity modal when selecting from search list
     function selectItemFromSearch(barcode) {
         const item = inventory.find(i => barcodesMatch(i.barcode, barcode));
         if (item) {
             showQuantityModal(item);
-            // Hide search results and clear input
             elements.searchResults.style.display = 'none';
             elements.manualSearch.value = '';
         }
     }
 
     function getPrice(item) {
-    const cat = item.category || 'Other';
-    const markup = item.customMarkup > 0 
-        ? item.customMarkup 
-        : (parseFloat(localStorage.getItem('markup-' + cat)) || 20);
-    
-    const rawPrice = Number(item.cost || 0) * (1 + markup / 100);
-    return Math.round(rawPrice * 100) / 100;   // ← clean 2-decimal number
-}
+        const cat = item.category || 'Other';
+        const markup = item.customMarkup > 0 
+            ? item.customMarkup 
+            : (parseFloat(localStorage.getItem('markup-' + cat)) || 20);
+        
+        const rawPrice = Number(item.cost || 0) * (1 + markup / 100);
+        return Math.round(rawPrice * 100) / 100;
+    }
 
     function addToCart(barcodeStr) {
         if (dailyCount >= DAILY_LIMIT) return showMessage("Daily limit reached.");
@@ -867,7 +863,7 @@ function barcodesMatch(a, b) {
         else cart.push({ 
             ...item, 
             qty: 1, 
-            price: getPrice(item)   // now guaranteed clean
+            price: getPrice(item)
         });
         elements.manualSearch.value = '';
         elements.searchResults.style.display = 'none';
@@ -902,37 +898,39 @@ function barcodesMatch(a, b) {
         });
     }
 
-       async function checkout() {
+    async function checkout() {
         if (!cart.length) return;
 
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Calculate total and round to 2 decimal places safely
         let total = cart.reduce((sum, item) => {
             return sum + (Number(item.price) * item.qty);
         }, 0);
         total = Math.round(total * 100) / 100;
 
-        showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
-    let cash = parseFloat(cashInput);
-    if (isNaN(cash)) {
-        showMessage("Please enter a valid amount.");
-        if (completeBtn) completeBtn.disabled = false;
-        return;
-    }
+        // FIXED: Pass isMoney = true so decimal input works
+        showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
+                   total.toFixed(2), 
+                   (cashInput) => {
+            let cash = parseFloat(cashInput);
+            if (isNaN(cash)) {
+                showMessage("Please enter a valid amount.");
+                if (completeBtn) completeBtn.disabled = false;
+                return;
+            }
 
-    // === WORK IN CENTS (no more floating-point bugs) ===
-    const totalCents = Math.round(total * 100);
-    const cashCents  = Math.round(cash * 100);
+            // === WORK IN CENTS (no more floating-point bugs) ===
+            const totalCents = Math.round(total * 100);
+            const cashCents  = Math.round(cash * 100);
 
-    if (cashCents < totalCents) {
-        showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
-        if (completeBtn) completeBtn.disabled = false;
-        return;
-    }
+            if (cashCents < totalCents) {
+                showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
+                if (completeBtn) completeBtn.disabled = false;
+                return;
+            }
 
-    const change = (cashCents - totalCents) / 100;
+            const change = (cashCents - totalCents) / 100;
 
             // Deduct stock locally
             cart.forEach(cartItem => {
@@ -968,10 +966,9 @@ function barcodesMatch(a, b) {
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
             });
-        });
+        }, true);   // ← isMoney = true
     }
 
-        // Show / Hide sync button based on pending changes
     function updateSyncButton() {
         const syncBtn = document.getElementById('sync-btn');
         if (syncBtn) {
@@ -979,14 +976,13 @@ function barcodesMatch(a, b) {
         }
     }
 
-    // Call this after any local stock change (sale, manual edit, etc.)
     function markAsPendingSync() {
         hasPendingSync = true;
         updateSyncButton();
     }
 
     // ====================== MANUAL SYNC BUTTON ======================
-        async function syncStockToSheet() {
+    async function syncStockToSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) {
             showMessage("Please set your Google Sheet URL in Settings first.");
@@ -1013,8 +1009,8 @@ function barcodesMatch(a, b) {
                 });
             }
 
-            hasPendingSync = false;           // ← Reset flag
-            updateSyncButton();               // ← Hide button
+            hasPendingSync = false;
+            updateSyncButton();
 
             showMessage("✅ Stock successfully synced to sheet.", () => {
                 fetchInventoryFromSheet(); 
@@ -1029,11 +1025,13 @@ function barcodesMatch(a, b) {
     function showCashUp() {
         const expectedSales = dailyTotal;
         const expectedCash = startingFloat + expectedSales;
+
+        // FIXED: Proper nested callbacks + isMoney=true
         showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, 
-           expectedCash.toFixed(2), 
-           (cashCounted) => { ... }, 
-           true);
-            showPrompt("Card payments total:", "0", (cardTotal) => { ... }, true);
+                   expectedCash.toFixed(2), 
+                   (cashCounted) => {
+            showPrompt("Card payments total:", "0", 
+                       (cardTotal) => {
                 const actual = cashCounted + cardTotal;
                 const variance = actual - expectedCash;
                 let msg = `CASH UP SUMMARY\n\n`;
@@ -1045,14 +1043,17 @@ function barcodesMatch(a, b) {
                 if (variance > 0) msg += `✅ OVER by R${variance.toFixed(2)}`;
                 else if (variance < 0) msg += `⚠️ SHORT by R${Math.abs(variance).toFixed(2)}`;
                 else msg += `✅ Perfect match!`;
+                
                 showMessage(msg, () => {
-                    showPrompt("Starting float for next shift:", cashCounted.toFixed(2), (newFloat) => {
+                    showPrompt("Starting float for next shift:", 
+                               cashCounted.toFixed(2), 
+                               (newFloat) => {
                         startingFloat = newFloat;
                         localStorage.setItem(floatKey, startingFloat);
-                    });
+                    }, true);
                 });
-            });
-        });
+            }, true);   // card payment is also money
+        }, true);   // cash counted is money
     }
 
     // ====================== SETTINGS & SYNC ======================
@@ -1173,10 +1174,10 @@ function barcodesMatch(a, b) {
         } catch (e) {}
     }
 
-       // ====================== SCANNER (html5-qrcode) ======================
+    // ====================== SCANNER (html5-qrcode) ======================
     let html5QrCode = null;
     let lastScanTime = 0;
-    const SCAN_COOLDOWN_MS = 2000;   // 2 seconds pause between scans
+    const SCAN_COOLDOWN_MS = 2000;
 
     async function startScanner(mode) {
         if (dailyCount >= DAILY_LIMIT && mode === 'sale') {
@@ -1185,8 +1186,6 @@ function barcodesMatch(a, b) {
         }
 
         currentScanMode = mode;
-
-        // Stop any previous scanner cleanly
         await stopScanner();
 
         html5QrCode = new Html5Qrcode("interactive");
@@ -1215,7 +1214,7 @@ function barcodesMatch(a, b) {
                 (decodedText, decodedResult) => {
                     handleScannedCode(decodedText, mode);
                 },
-                (error) => {}   // silent
+                (error) => {}
             );
 
         } catch (err) {
@@ -1229,19 +1228,18 @@ function barcodesMatch(a, b) {
         if (html5QrCode) {
             try {
                 await html5QrCode.stop();
-                await html5QrCode.clear();   // Clean shutdown
+                await html5QrCode.clear();
             } catch (e) {
                 console.warn("Scanner stop warning:", e);
             }
             html5QrCode = null;
         }
 
-        // Always hide UI elements
         document.getElementById('interactive').style.display = 'none';
         document.getElementById('stop-scan-btn').style.display = 'none';
     }
 
-        function handleScannedCode(decodedText, mode) {
+    function handleScannedCode(decodedText, mode) {
         const now = Date.now();
         if (now - lastScanTime < SCAN_COOLDOWN_MS) return;
         lastScanTime = now;
@@ -1252,16 +1250,12 @@ function barcodesMatch(a, b) {
             const item = inventory.find(i => barcodesMatch(i.barcode, decodedText));
             if (item) {
                 showQuantityModal(item);
-                // Camera stays open - user closes manually with "Close Camera" button
             } else {
                 showMessage("Item not found in inventory.");
             }
         } else {
-            // Stock mode
             document.getElementById('stock-barcode').value = decodedText;
             autoFillFromBarcode(decodedText);
-            // Optional: auto close in stock mode (remove line if you want manual only)
-            // setTimeout(() => stopScanner(), 800);
         }
     }
 
@@ -1341,101 +1335,85 @@ function barcodesMatch(a, b) {
         }); 
         updateSyncButton();
     };
-   
 
-// ====================== PWA INSTALL & FULL-SCREEN SUPPORT ======================
-let deferredPrompt = null;
+    // ====================== PWA INSTALL & FULL-SCREEN SUPPORT ======================
+    let deferredPrompt = null;
 
-const installBanner = document.getElementById('install-banner');
-const installBtn = document.getElementById('install-btn');
+    const installBanner = document.getElementById('install-banner');
+    const installBtn = document.getElementById('install-btn');
 
-// Enhanced check for standalone / installed mode
-function checkDisplayMode() {
-    const isStandalone = 
-        window.matchMedia('(display-mode: standalone)').matches || 
-        window.navigator.standalone === true ||
-        document.referrer.includes('android-app') ||   // Some Android cases
-        window.location.href.includes('?standalone');  // Fallback
+    function checkDisplayMode() {
+        const isStandalone = 
+            window.matchMedia('(display-mode: standalone)').matches || 
+            window.navigator.standalone === true ||
+            document.referrer.includes('android-app') ||
+            window.location.href.includes('?standalone');
 
-    console.log('Display mode check - Standalone:', isStandalone);
+        console.log('Display mode check - Standalone:', isStandalone);
 
-    if (isStandalone && installBanner) {
-        installBanner.style.display = 'none';
-        console.log('✅ Running in standalone mode - hiding install banner');
-    } else if (installBanner) {
-        installBanner.style.display = 'block';
-    }
-}
-
-// Capture browser install prompt
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('✅ beforeinstallprompt fired - ready for custom install');
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Show banner only if not already in standalone
-    if (installBanner) {
-        installBanner.style.display = 'block';
-    }
-});
-
-// Handle Install Button Click
-if (installBtn) {
-    installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) {
-            // Fallback message for devices where install is restricted
-            showMessage("Install may not be available on this device.<br><br>" +
-                        "Try these steps:<br>" +
-                        "• On Chrome: Tap menu (⋮) → 'Install app'<br>" +
-                        "• On laptop: Use Chrome menu → 'Install Tuckshop POS...'", 
-                        () => {});
-            return;
+        if (isStandalone && installBanner) {
+            installBanner.style.display = 'none';
+            console.log('✅ Running in standalone mode - hiding install banner');
+        } else if (installBanner) {
+            installBanner.style.display = 'block';
         }
+    }
 
-        installBtn.disabled = true;
-        installBtn.textContent = "Installing...";
+    window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('✅ beforeinstallprompt fired - ready for custom install');
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        if (installBanner) {
+            installBanner.style.display = 'block';
+        }
+    });
 
-        try {
-            const result = await deferredPrompt.prompt();
-            console.log('Install prompt outcome:', result.outcome);
-
-            if (result.outcome === 'accepted') {
-                console.log('🎉 User accepted installation');
-            } else {
-                console.log('User dismissed install prompt');
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) {
+                showMessage("Install may not be available on this device.<br><br>" +
+                            "Try these steps:<br>" +
+                            "• On Chrome: Tap menu (⋮) → 'Install app'<br>" +
+                            "• On laptop: Use Chrome menu → 'Install Tuckshop POS...'", 
+                            () => {});
+                return;
             }
-        } catch (err) {
-            console.error('Install prompt error:', err);
-        }
 
-        deferredPrompt = null;
-        installBtn.disabled = false;
-        installBtn.textContent = "Add to Home Screen";
+            installBtn.disabled = true;
+            installBtn.textContent = "Installing...";
 
-        // Hide banner after attempt
-        if (installBanner) installBanner.style.display = 'none';
-    });
-}
+            try {
+                const result = await deferredPrompt.prompt();
+                console.log('Install prompt outcome:', result.outcome);
+            } catch (err) {
+                console.error('Install prompt error:', err);
+            }
 
-// Listen for successful installation
-window.addEventListener('appinstalled', () => {
-    console.log('🎉 Tuckshop POS was successfully installed!');
-    if (installBanner) {
-        installBanner.style.display = 'none';
+            deferredPrompt = null;
+            installBtn.disabled = false;
+            installBtn.textContent = "Add to Home Screen";
+
+            if (installBanner) installBanner.style.display = 'none';
+        });
     }
-    deferredPrompt = null;
-});
 
-// Final check on load and when display mode changes
-window.addEventListener('load', () => {
-    checkDisplayMode();
-    
-    // Re-check whenever display mode changes (very important for laptops)
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-        console.log('Display mode changed to:', e.matches ? 'standalone' : 'browser');
-        checkDisplayMode();
+    window.addEventListener('appinstalled', () => {
+        console.log('🎉 Tuckshop POS was successfully installed!');
+        if (installBanner) {
+            installBanner.style.display = 'none';
+        }
+        deferredPrompt = null;
     });
-});
+
+    window.addEventListener('load', () => {
+        checkDisplayMode();
+        
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+            console.log('Display mode changed to:', e.matches ? 'standalone' : 'browser');
+            checkDisplayMode();
+        });
+    });
 </script>
 </body>
 </html>
