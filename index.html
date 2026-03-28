@@ -840,10 +840,14 @@ function barcodesMatch(a, b) {
     }
 
     function getPrice(item) {
-        const cat = item.category || 'Other';
-        const markup = item.customMarkup > 0 ? item.customMarkup : (parseFloat(localStorage.getItem('markup-' + cat)) || 20);
-        return (Number(item.cost || 0) * (1 + markup / 100)).toFixed(2);
-    }
+    const cat = item.category || 'Other';
+    const markup = item.customMarkup > 0 
+        ? item.customMarkup 
+        : (parseFloat(localStorage.getItem('markup-' + cat)) || 20);
+    
+    const rawPrice = Number(item.cost || 0) * (1 + markup / 100);
+    return Math.round(rawPrice * 100) / 100;   // ← clean 2-decimal number
+}
 
     function addToCart(barcodeStr) {
         if (dailyCount >= DAILY_LIMIT) return showMessage("Daily limit reached.");
@@ -852,7 +856,11 @@ function barcodesMatch(a, b) {
         if (!item) return showMessage("Item not found.");
         const existing = cart.find(c => normalizeBarcode(c.barcode) === normalized);
         if (existing) existing.qty++;
-        else cart.push({ ...item, qty: 1, price: getPrice(item) });
+        else cart.push({ 
+            ...item, 
+            qty: 1, 
+            price: getPrice(item)   // now guaranteed clean
+        });
         elements.manualSearch.value = '';
         elements.searchResults.style.display = 'none';
         renderCart();
@@ -899,25 +907,24 @@ function barcodesMatch(a, b) {
         total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
-            let cash = parseFloat(cashInput);
-            if (isNaN(cash)) {
-                showMessage("Please enter a valid amount.");
-                if (completeBtn) completeBtn.disabled = false;
-                return;
-            }
+    let cash = parseFloat(cashInput);
+    if (isNaN(cash)) {
+        showMessage("Please enter a valid amount.");
+        if (completeBtn) completeBtn.disabled = false;
+        return;
+    }
 
-            // Round cash to 2 decimal places
-            cash = Math.round(cash * 100) / 100;
+    // === WORK IN CENTS (no more floating-point bugs) ===
+    const totalCents = Math.round(total * 100);
+    const cashCents  = Math.round(cash * 100);
 
-            // FIXED: More forgiving comparison for money
-            // Accepts exact amount or any amount >= total
-            if (cash < total - 0.01) {   // Allow up to 1 cent tolerance
-                showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
-                if (completeBtn) completeBtn.disabled = false;
-                return;
-            }
+    if (cashCents < totalCents) {
+        showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
+        if (completeBtn) completeBtn.disabled = false;
+        return;
+    }
 
-            const change = Math.round((cash - total) * 100) / 100;
+    const change = (cashCents - totalCents) / 100;
 
             // Deduct stock locally
             cart.forEach(cartItem => {
