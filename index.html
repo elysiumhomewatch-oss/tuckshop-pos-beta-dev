@@ -183,7 +183,12 @@
     </nav>
 
     <div id="interactive" class="viewport"></div>
-        <button id="stop-scan-btn" class="btn btn-danger" style="display:none;" onclick="stopScanner()">Close Camera</button>
+        <button id="stop-scan-btn" 
+        class="btn btn-danger" 
+        style="display:none; width:100%; margin-top:8px;" 
+        onclick="stopScanner()">
+    Close Camera
+</button>
 
     <!-- SALE TAB -->
     <div id="sale-tab" class="tab-content active">
@@ -1108,8 +1113,10 @@ if (sheetUrl && cart.length) {
         } catch (e) {}
     }
 
-    // ====================== SCANNER (html5-qrcode) ======================
+        // ====================== SCANNER (html5-qrcode) ======================
     let html5QrCode = null;
+    let lastScanTime = 0;
+    const SCAN_COOLDOWN_MS = 2000;   // 2 seconds pause between scans
 
     async function startScanner(mode) {
         if (dailyCount >= DAILY_LIMIT && mode === 'sale') {
@@ -1119,29 +1126,27 @@ if (sheetUrl && cart.length) {
 
         currentScanMode = mode;
 
-        // Stop any previous instance
-        if (html5QrCode) {
-            await stopScanner();
-        }
+        // Stop any running instance first
+        await stopScanner();
 
         html5QrCode = new Html5Qrcode("interactive");
 
         const config = {
-            fps: 15,
-            qrbox: { width: 250, height: 250 },
+            fps: 12,
+            qrbox: { width: 260, height: 260 },
             aspectRatio: 1.0,
-            disableFlip: false
+            disableFlip: false,
+            rememberLastUsedCamera: true
         };
 
         try {
             document.getElementById('interactive').style.display = 'block';
             document.getElementById('stop-scan-btn').style.display = 'block';
 
-            // Get available cameras and prefer back camera
             const cameras = await Html5Qrcode.getCameras();
-            const backCamera = cameras.find(camera => 
-                camera.label.toLowerCase().includes("back") || 
-                camera.label.toLowerCase().includes("rear")
+            const backCamera = cameras.find(c => 
+                c.label.toLowerCase().includes("back") || 
+                c.label.toLowerCase().includes("rear")
             ) || cameras[0];
 
             await html5QrCode.start(
@@ -1150,15 +1155,56 @@ if (sheetUrl && cart.length) {
                 (decodedText, decodedResult) => {
                     handleScannedCode(decodedText, mode);
                 },
-                (error) => {
-                    // Silent error handling - too noisy otherwise
-                }
+                (error) => {}   // silent
             );
 
         } catch (err) {
-            console.error(err);
-            showMessage("Failed to start camera. Please check permissions.");
+            console.error("Camera start failed:", err);
+            showMessage("Could not start camera. Check permissions and try again.");
             stopScanner();
+        }
+    }
+
+    async function stopScanner() {
+        if (!html5QrCode) return;
+
+        try {
+            await html5QrCode.stop();
+            await html5QrCode.clear();   // extra cleanup for stubborn mobile cases
+        } catch (e) {
+            console.warn("Stop scanner warning:", e);
+        }
+
+        html5QrCode = null;
+        document.getElementById('interactive').style.display = 'none';
+        document.getElementById('stop-scan-btn').style.display = 'none';
+    }
+
+    function handleScannedCode(decodedText, mode) {
+        const now = Date.now();
+        if (now - lastScanTime < SCAN_COOLDOWN_MS) {
+            return;   // ignore scans during cooldown
+        }
+        lastScanTime = now;
+
+        if (navigator.vibrate) navigator.vibrate(80);
+
+        if (mode === 'sale') {
+            const item = inventory.find(i => barcodesMatch(i.barcode, decodedText));
+            if (item) {
+                showQuantityModal(item);
+            } else {
+                showMessage("Item not found in inventory.");
+            }
+        } else {
+            // Stock mode
+            document.getElementById('stock-barcode').value = decodedText;
+            autoFillFromBarcode(decodedText);
+        }
+
+        // Auto-stop after successful sale scan (optional but nice)
+        if (mode === 'sale') {
+            setTimeout(() => stopScanner(), 800);
         }
     }
 
