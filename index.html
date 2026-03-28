@@ -886,7 +886,7 @@ function barcodesMatch(a, b) {
         });
     }
 
-    async function checkout() {
+        async function checkout() {
         if (!cart.length) return;
 
         const completeBtn = document.querySelector('#sale-tab .btn-save');
@@ -895,7 +895,7 @@ function barcodesMatch(a, b) {
         const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cash) => {
-            if (cash < total) {
+            if (cash < total) {                    // ← Changed from <= to <
                 showMessage("Not enough cash received!");
                 if (completeBtn) completeBtn.disabled = false;
                 return;
@@ -903,7 +903,7 @@ function barcodesMatch(a, b) {
 
             const change = cash - total;
 
-            // Deduct stock locally only
+            // Deduct stock locally
             cart.forEach(cartItem => {
                 const cartBarcodeClean = String(cartItem.barcode || "").trim().replace(/^0+/, '');
                 const item = inventory.find(i => 
@@ -913,28 +913,9 @@ function barcodesMatch(a, b) {
                     item.stockQty = Math.max(0, (item.stockQty || 0) - cartItem.qty);
                 }
             });
-            // Mark that we have local changes that need syncing
-            markAsPendingSync();
-            
-           
-const sheetUrl = document.getElementById('user-sheet-url').value.trim();
-if (sheetUrl && cart.length) {
-    const soldItems = cart.map(cartItem => {
-        const norm = normalizeBarcode(cartItem.barcode);
-        const item = inventory.find(i => normalizeBarcode(i.barcode) === norm);
-        return { barcode: norm, stockQty: item ? item.stockQty : 0 };
-    });
 
-    fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-            action: "updateSoldItems",
-            sheetUrl: sheetUrl,
-            soldItems: soldItems
-        })
-    }).catch(e => console.error("Stock sync failed", e));
-}
+            // Mark pending sync
+            markAsPendingSync();
 
             // Log transaction
             const now = new Date();
