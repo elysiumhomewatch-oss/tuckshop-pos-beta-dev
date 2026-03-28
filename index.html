@@ -314,7 +314,6 @@
         const na = normalizeBarcode(a);
         const nb = normalizeBarcode(b);
         if (na === nb) return true;
-        // Handle EAN-13 <-> UPC-A
         if (na.length === 13 && na.startsWith('0') && nb === na.substring(1)) return true;
         if (nb.length === 13 && nb.startsWith('0') && na === nb.substring(1)) return true;
         return false;
@@ -898,6 +897,7 @@
         });
     }
 
+    // ====================== AUTO-SYNC AFTER SALE ======================
     async function checkout() {
         if (!cart.length) return;
 
@@ -909,10 +909,9 @@
         }, 0);
         total = Math.round(total * 100) / 100;
 
-        // FIXED: Pass isMoney = true so decimal input works
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
-                   (cashInput) => {
+                   async (cashInput) => {   // ← made async
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
                 showMessage("Please enter a valid amount.");
@@ -920,7 +919,6 @@
                 return;
             }
 
-            // === WORK IN CENTS (no more floating-point bugs) ===
             const totalCents = Math.round(total * 100);
             const cashCents  = Math.round(cash * 100);
 
@@ -943,7 +941,8 @@
                 }
             });
 
-            markAsPendingSync();
+            saveInventoryToLocal();
+            addToDailyTotal(total);
 
             // Log transaction
             const now = new Date();
@@ -958,15 +957,20 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
-            addToDailyTotal(total);
-            saveInventoryToLocal();
+            // === AUTO-SYNC AFTER SALE (silent) ===
+            const syncSuccess = await syncStockToSheet(true);
 
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
+
+                // If auto-sync failed, show the manual button
+                if (!syncSuccess) {
+                    markAsPendingSync();
+                }
             });
-        }, true);   // ← isMoney = true
+        }, true);
     }
 
     function updateSyncButton() {
@@ -981,24 +985,27 @@
         updateSyncButton();
     }
 
-    // ====================== MANUAL SYNC BUTTON ======================
-    async function syncStockToSheet() {
+    // ====================== MANUAL / AUTO SYNC ======================
+    async function syncStockToSheet(isAuto = false) {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) {
-            showMessage("Please set your Google Sheet URL in Settings first.");
-            return;
+            if (!isAuto) showMessage("Please set your Google Sheet URL in Settings first.");
+            return false;
         }
 
-        const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Syncing Stock";
-        document.getElementById('modal-body').innerHTML = `
-            <p style="text-align:center; padding:30px 20px;">
-                Updating stock levels in Google Sheet...<br><br>
-                <div class="spinner"></div>
-            </p>
-        `;
-        document.getElementById('modal-buttons').innerHTML = '';
-        modal.style.display = 'flex';
+        // Only show modal if user manually clicked the button
+        if (!isAuto) {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-title').textContent = "Syncing Stock";
+            document.getElementById('modal-body').innerHTML = `
+                <p style="text-align:center; padding:30px 20px;">
+                    Updating stock levels in Google Sheet...<br><br>
+                    <div class="spinner"></div>
+                </p>
+            `;
+            document.getElementById('modal-buttons').innerHTML = '';
+            modal.style.display = 'flex';
+        }
 
         try {
             for (const item of inventory) {
@@ -1012,12 +1019,24 @@
             hasPendingSync = false;
             updateSyncButton();
 
-            showMessage("✅ Stock successfully synced to sheet.", () => {
-                fetchInventoryFromSheet(); 
-            });
+            if (!isAuto) {
+                showMessage("✅ Stock successfully synced to sheet.", () => {
+                    fetchInventoryFromSheet(); 
+                });
+            }
+
+            return true;   // success
+
         } catch (e) {
-            console.error(e);
-            showMessage("⚠️ Sync failed. Stock is saved locally.");
+            console.error("Auto-sync failed:", e);
+            hasPendingSync = true;
+            updateSyncButton();
+
+            if (!isAuto) {
+                showMessage("⚠️ Sync failed. Stock is saved locally.");
+            }
+
+            return false;  // failure
         }
     }
 
@@ -1026,7 +1045,6 @@
         const expectedSales = dailyTotal;
         const expectedCash = startingFloat + expectedSales;
 
-        // FIXED: Proper nested callbacks + isMoney=true
         showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, 
                    expectedCash.toFixed(2), 
                    (cashCounted) => {
@@ -1052,8 +1070,8 @@
                         localStorage.setItem(floatKey, startingFloat);
                     }, true);
                 });
-            }, true);   // card payment is also money
-        }, true);   // cash counted is money
+            }, true);
+        }, true);
     }
 
     // ====================== SETTINGS & SYNC ======================
