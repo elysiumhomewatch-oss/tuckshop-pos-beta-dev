@@ -1199,12 +1199,11 @@ if (sheetUrl && cart.length) {
             // Stock mode
             document.getElementById('stock-barcode').value = decodedText;
             autoFillFromBarcode(decodedText);
+            setTimeout(() => stopScanner(), 800);
         }
 
         // Auto-stop camera after successful sale scan
-        if (mode === 'sale') {
-            setTimeout(() => stopScanner(), 800);
-        }
+        
     }
 
     // ====================== AUTO-FILL & SEARCH ======================
