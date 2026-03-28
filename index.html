@@ -802,16 +802,37 @@ function barcodesMatch(a, b) {
     }
 
     // ====================== SALE FUNCTIONS ======================
-    function handleSearch(val) {
-        if (val.length < 2) { elements.searchResults.style.display = 'none'; return; }
+        function handleSearch(val) {
+        if (val.length < 2) { 
+            elements.searchResults.style.display = 'none'; 
+            return; 
+        }
         const lower = val.toLowerCase();
         const filtered = inventory.filter(i =>
             (i.name || '').toLowerCase().includes(lower) || barcodesMatch(i.barcode, val)
         );
-        elements.searchResults.innerHTML = filtered.length ?
-            filtered.map(i => `<div class="search-row" onclick="addToCart('${String(i.barcode)}')">${i.name} (R${getPrice(i)})</div>`).join('') :
-            `<div style="padding:12px;color:#888;">No matching items</div>`;
+
+        if (filtered.length === 0) {
+            elements.searchResults.innerHTML = `<div style="padding:12px;color:#888;">No matching items</div>`;
+        } else {
+            elements.searchResults.innerHTML = filtered.map(i => 
+                `<div class="search-row" onclick="selectItemFromSearch('${String(i.barcode)}')">
+                    ${i.name} (R${getPrice(i)})
+                </div>`
+            ).join('');
+        }
         elements.searchResults.style.display = 'block';
+    }
+
+    // New function: Show quantity modal when selecting from search list
+    function selectItemFromSearch(barcode) {
+        const item = inventory.find(i => barcodesMatch(i.barcode, barcode));
+        if (item) {
+            showQuantityModal(item);
+            // Hide search results and clear input
+            elements.searchResults.style.display = 'none';
+            elements.manualSearch.value = '';
+        }
     }
 
     function getPrice(item) {
@@ -1181,7 +1202,7 @@ if (sheetUrl && cart.length) {
         document.getElementById('stop-scan-btn').style.display = 'none';
     }
 
-    function handleScannedCode(decodedText, mode) {
+        function handleScannedCode(decodedText, mode) {
         const now = Date.now();
         if (now - lastScanTime < SCAN_COOLDOWN_MS) return;
         lastScanTime = now;
@@ -1192,6 +1213,7 @@ if (sheetUrl && cart.length) {
             const item = inventory.find(i => barcodesMatch(i.barcode, decodedText));
             if (item) {
                 showQuantityModal(item);
+                // Camera stays open - user closes manually with "Close Camera" button
             } else {
                 showMessage("Item not found in inventory.");
             }
@@ -1199,11 +1221,9 @@ if (sheetUrl && cart.length) {
             // Stock mode
             document.getElementById('stock-barcode').value = decodedText;
             autoFillFromBarcode(decodedText);
-            setTimeout(() => stopScanner(), 800);
+            // Optional: auto close in stock mode (remove line if you want manual only)
+            // setTimeout(() => stopScanner(), 800);
         }
-
-        // Auto-stop camera after successful sale scan
-        
     }
 
     // ====================== AUTO-FILL & SEARCH ======================
