@@ -19,7 +19,8 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.json">
 
-    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js"></script>
+        <!-- Replace Quagga with html5-qrcode -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root { 
             --primary: #2563eb; 
@@ -182,7 +183,7 @@
     </nav>
 
     <div id="interactive" class="viewport"></div>
-    <button id="stop-scan-btn" class="btn btn-danger" style="display:none;" onclick="stopScanner()">Close Camera</button>
+        <button id="stop-scan-btn" class="btn btn-danger" style="display:none;" onclick="stopScanner()">Close Camera</button>
 
     <!-- SALE TAB -->
     <div id="sale-tab" class="tab-content active">
@@ -1107,67 +1108,90 @@ if (sheetUrl && cart.length) {
         } catch (e) {}
     }
 
-        // ====================== SCANNER ======================
+    // ====================== SCANNER (html5-qrcode) ======================
+    let html5QrCode = null;
+
     async function startScanner(mode) {
-        if (dailyCount >= DAILY_LIMIT && mode === 'sale') return showMessage("Daily limit reached.");
-        if (typeof Quagga === 'undefined') return showMessage("Scanner not loaded.");
-        if (currentMediaStream) {
-            currentMediaStream.getTracks().forEach(t => t.stop());
-            currentMediaStream = null;
+        if (dailyCount >= DAILY_LIMIT && mode === 'sale') {
+            showMessage("Daily limit reached.");
+            return;
         }
+
         currentScanMode = mode;
-        lastDetectionTime = 0;
+
+        // Stop any previous instance
+        if (html5QrCode) {
+            await stopScanner();
+        }
+
+        html5QrCode = new Html5Qrcode("interactive");
+
+        const config = {
+            fps: 15,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            disableFlip: false
+        };
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }}
-            });
-            currentMediaStream = stream;
             document.getElementById('interactive').style.display = 'block';
             document.getElementById('stop-scan-btn').style.display = 'block';
-            isScannerRunning = true;
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: document.getElementById('interactive'),
-                    constraints: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }}
-                },
-                locator: { patchSize: "medium", halfSample: true },
-                numOfWorkers: navigator.hardwareConcurrency ? Math.min(4, navigator.hardwareConcurrency) : 2,
-                frequency: 15,
-                decoder: {
-                    readers: ["ean_reader", "upc_reader", "code_128_reader", "code_39_reader", "i2of5_reader"],
-                    multiple: false
-                },
-                locate: true
-            }, (err) => {
-                if (err) { showMessage("Scanner init failed"); stopScanner(); return; }
-                Quagga.start();
-            });
-            Quagga.onDetected((data) => {
-                const now = Date.now();
-                if (now - lastDetectionTime < DETECTION_COOLDOWN_MS) return;
-                lastDetectionTime = now;
-                const code = data.codeResult.code;
-                if (navigator.vibrate) navigator.vibrate(80);
 
-                if (currentScanMode === 'sale') {
-                    const item = inventory.find(i => barcodesMatch(i.barcode, code));
-                    if (item) {
-                        showQuantityModal(item);   // Show "Add" vs "Multiples" modal
-                    } else {
-                        showMessage("Item not found in inventory.");
-                    }
-                    setTimeout(stopScanner, 400);
-                } else {
-                    document.getElementById('stock-barcode').value = code;
-                    autoFillFromBarcode(code);
-                    stopScanner();
+            // Get available cameras and prefer back camera
+            const cameras = await Html5Qrcode.getCameras();
+            const backCamera = cameras.find(camera => 
+                camera.label.toLowerCase().includes("back") || 
+                camera.label.toLowerCase().includes("rear")
+            ) || cameras[0];
+
+            await html5QrCode.start(
+                backCamera.id,
+                config,
+                (decodedText, decodedResult) => {
+                    handleScannedCode(decodedText, mode);
+                },
+                (error) => {
+                    // Silent error handling - too noisy otherwise
                 }
-            });
-        } catch (e) {
-            showMessage(`Camera error: ${e.name}`);
+            );
+
+        } catch (err) {
+            console.error(err);
+            showMessage("Failed to start camera. Please check permissions.");
             stopScanner();
+        }
+    }
+
+    async function stopScanner() {
+        if (html5QrCode) {
+            try {
+                await html5QrCode.stop();
+            } catch (e) {}
+            html5QrCode = null;
+        }
+        document.getElementById('interactive').style.display = 'none';
+        document.getElementById('stop-scan-btn').style.display = 'none';
+    }
+
+    function handleScannedCode(decodedText, mode) {
+        if (navigator.vibrate) navigator.vibrate(80);
+
+        if (mode === 'sale') {
+            const item = inventory.find(i => barcodesMatch(i.barcode, decodedText));
+            if (item) {
+                showQuantityModal(item);
+            } else {
+                showMessage("Item not found in inventory.");
+            }
+        } else {
+            // Stock mode
+            document.getElementById('stock-barcode').value = decodedText;
+            autoFillFromBarcode(decodedText);
+        }
+
+        // Auto-stop after successful scan in sale mode
+        if (mode === 'sale') {
+            setTimeout(() => stopScanner(), 600);
         }
     }
 
