@@ -1113,7 +1113,7 @@ if (sheetUrl && cart.length) {
         } catch (e) {}
     }
 
-        // ====================== SCANNER (html5-qrcode) ======================
+       // ====================== SCANNER (html5-qrcode) ======================
     let html5QrCode = null;
     let lastScanTime = 0;
     const SCAN_COOLDOWN_MS = 2000;   // 2 seconds pause between scans
@@ -1126,7 +1126,7 @@ if (sheetUrl && cart.length) {
 
         currentScanMode = mode;
 
-        // Stop any running instance first
+        // Stop any previous scanner cleanly
         await stopScanner();
 
         html5QrCode = new Html5Qrcode("interactive");
@@ -1160,31 +1160,30 @@ if (sheetUrl && cart.length) {
 
         } catch (err) {
             console.error("Camera start failed:", err);
-            showMessage("Could not start camera. Check permissions and try again.");
-            stopScanner();
+            showMessage("Could not start camera. Check permissions.");
+            await stopScanner();
         }
     }
 
     async function stopScanner() {
-        if (!html5QrCode) return;
-
-        try {
-            await html5QrCode.stop();
-            await html5QrCode.clear();   // extra cleanup for stubborn mobile cases
-        } catch (e) {
-            console.warn("Stop scanner warning:", e);
+        if (html5QrCode) {
+            try {
+                await html5QrCode.stop();
+                await html5QrCode.clear();   // Clean shutdown
+            } catch (e) {
+                console.warn("Scanner stop warning:", e);
+            }
+            html5QrCode = null;
         }
 
-        html5QrCode = null;
+        // Always hide UI elements
         document.getElementById('interactive').style.display = 'none';
         document.getElementById('stop-scan-btn').style.display = 'none';
     }
 
     function handleScannedCode(decodedText, mode) {
         const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN_MS) {
-            return;   // ignore scans during cooldown
-        }
+        if (now - lastScanTime < SCAN_COOLDOWN_MS) return;
         lastScanTime = now;
 
         if (navigator.vibrate) navigator.vibrate(80);
@@ -1202,51 +1201,10 @@ if (sheetUrl && cart.length) {
             autoFillFromBarcode(decodedText);
         }
 
-        // Auto-stop after successful sale scan (optional but nice)
+        // Auto-stop camera after successful sale scan
         if (mode === 'sale') {
             setTimeout(() => stopScanner(), 800);
         }
-    }
-
-    async function stopScanner() {
-        if (html5QrCode) {
-            try {
-                await html5QrCode.stop();
-            } catch (e) {}
-            html5QrCode = null;
-        }
-        document.getElementById('interactive').style.display = 'none';
-        document.getElementById('stop-scan-btn').style.display = 'none';
-    }
-
-    function handleScannedCode(decodedText, mode) {
-        if (navigator.vibrate) navigator.vibrate(80);
-
-        if (mode === 'sale') {
-            const item = inventory.find(i => barcodesMatch(i.barcode, decodedText));
-            if (item) {
-                showQuantityModal(item);
-            } else {
-                showMessage("Item not found in inventory.");
-            }
-        } else {
-            // Stock mode
-            document.getElementById('stock-barcode').value = decodedText;
-            autoFillFromBarcode(decodedText);
-        }
-
-        // Auto-stop after successful scan in sale mode
-        if (mode === 'sale') {
-            setTimeout(() => stopScanner(), 600);
-        }
-    }
-
-    function stopScanner() {
-        if (Quagga && isScannerRunning) Quagga.stop();
-        if (currentMediaStream) currentMediaStream.getTracks().forEach(t => t.stop());
-        document.getElementById('interactive').style.display = 'none';
-        document.getElementById('stop-scan-btn').style.display = 'none';
-        isScannerRunning = false;
     }
 
     // ====================== AUTO-FILL & SEARCH ======================
