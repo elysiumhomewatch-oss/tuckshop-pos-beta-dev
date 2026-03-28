@@ -892,9 +892,9 @@ function barcodesMatch(a, b) {
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Calculate total safely
+        // Calculate total
         let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
-        total = Math.round(total * 100) / 100;
+        total = Math.round(total * 100) / 100;   // Safe rounding
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, total.toFixed(2), (cashInput) => {
             let cash = parseFloat(cashInput);
@@ -904,11 +904,10 @@ function barcodesMatch(a, b) {
                 return;
             }
 
-            // Round cash safely too
-            cash = Math.round(cash * 100) / 100;
+            cash = Math.round(cash * 100) / 100;   // Safe rounding for cash too
 
-            // FIXED: Proper money comparison with tolerance
-            if (cash + 0.001 < total) {   // Allow tiny floating point differences
+            // FIXED COMPARISON - This is the key line
+            if (cash < total - 0.005) {   // Small tolerance (5 cents)
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
@@ -916,7 +915,7 @@ function barcodesMatch(a, b) {
 
             const change = Math.round((cash - total) * 100) / 100;
 
-            // Deduct stock locally
+            // === Stock Deduction ===
             cart.forEach(cartItem => {
                 const cartBarcodeClean = String(cartItem.barcode || "").trim().replace(/^0+/, '');
                 const item = inventory.find(i => 
