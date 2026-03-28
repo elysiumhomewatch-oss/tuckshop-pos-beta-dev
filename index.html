@@ -897,16 +897,13 @@
         });
     }
 
-    // ====================== AUTO-SYNC AFTER SALE ======================
     async function checkout() {
         if (!cart.length) return;
 
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        let total = cart.reduce((sum, item) => {
-            return sum + (Number(item.price) * item.qty);
-        }, 0);
+        let total = cart.reduce((sum, item) => sum + (Number(item.price) * item.qty), 0);
         total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
@@ -958,18 +955,41 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
-            // Silent auto-sync after sale
-            const syncSuccess = await syncStockToSheet(true);
+            // === FAST AUTO-SYNC: Only sold items ===
+            const soldItems = cart.map(cartItem => {
+                const norm = normalizeBarcode(cartItem.barcode);
+                const item = inventory.find(i => normalizeBarcode(i.barcode) === norm);
+                return {
+                    barcode: norm,
+                    stockQty: item ? item.stockQty : 0
+                };
+            });
+
+            // Silent fast sync of only changed items
+            const sheetUrl = document.getElementById('user-sheet-url').value.trim();
+            if (sheetUrl && soldItems.length) {
+                try {
+                    await fetch(APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: "updateSoldItems",
+                            sheetUrl: sheetUrl,
+                            soldItems: soldItems
+                        })
+                    });
+                    hasPendingSync = false;
+                    updateSyncButton();
+                } catch (e) {
+                    console.error("Auto sync failed", e);
+                    markAsPendingSync();   // show manual button
+                }
+            }
 
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
-
-                // If auto-sync failed, keep the manual button visible
-                if (!syncSuccess) {
-                    markAsPendingSync();
-                }
             });
         }, true);
     }
