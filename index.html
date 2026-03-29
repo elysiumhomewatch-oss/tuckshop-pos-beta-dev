@@ -183,11 +183,11 @@
         </div>
         <div id="sale-status" class="status"></div>
         
-        <div class="daily-summary">
+        <!-- <div class="daily-summary">
             <strong>Today's Sales:</strong> <span id="daily-total">R0.00</span> 
             (<span id="daily-items">0</span> items)
-            <button onclick="resetDailySales()" style="margin-left:12px; padding:4px 8px; font-size:12px;">Reset</button>
-        </div>
+            <button onclick="resetDailySales()" style="margin-left:12px; padding:4px 8px; font-size:12px;">Reset</button> 
+        </div>-->
 
         <div class="transaction-log">
             <strong>Last 5 Sales:</strong>
@@ -291,7 +291,7 @@
 
     // ====================== VERSION CONTROL ======================
     let isBaseVersion = false;           // Default = Free
-    const DAILY_LIMIT = 3;             // Only applies in Free mode
+    const DAILY_LIMIT = 100;             // Only applies in Free mode
     
 
     // ====================== UTILITY ======================
