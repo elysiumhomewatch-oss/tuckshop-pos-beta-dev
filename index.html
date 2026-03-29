@@ -4,13 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- PWA Theme -->
     <meta name="theme-color" content="#2563eb">
-    
-    <!-- Modern Mobile Web App Capable (fixes the deprecation warning) -->
     <meta name="mobile-web-app-capable" content="yes">
-    
-    <!-- Keep for better iOS Safari support (even if partially deprecated) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Tuckshop POS">
@@ -19,7 +14,6 @@
     <link rel="icon" href="data:,">
     <link rel="manifest" href="manifest.json">
 
-    <!-- Replace Quagga with html5-qrcode -->
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root { 
@@ -78,6 +72,7 @@
         .btn-gray { background: var(--gray); color: white; }
         .btn-inspector { background: var(--warning); color: white; }
         .btn-cashup { background: #7c3aed; color: white; }
+        .btn-upgrade { background: #f59e0b; color: white; font-weight: 700; }
 
         .cart-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
 
@@ -144,34 +139,13 @@
         }
         .modal-buttons .btn-cancel { background: #e2e8f0; color: #334155; }
         .modal-buttons .btn-confirm { background: var(--primary); color: white; }
-
-        #install-banner {
-            background: #fef3c7;
-            color: #854d0e;
-            padding: 12px;
-            border-radius: 10px;
-            margin: 12px 0;
-            text-align: center;
-            display: none;
-            font-weight: 600;
-        }
-        #install-btn {
-            background: var(--primary);
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 8px;
-        }
     </style>
 </head>
 <body>
 
 <div class="container">
     
-    <div class="beta-banner">🔬 BETA TESTING VERSION 0.9 - Persistent Categories + Stock Deduction</div>
+    <div id="beta-banner" class="beta-banner">🔬 DEMO VERSION 0.9 - PLEASE uPGRADE IN THE SETTING TAB</div>
 
     <h2 style="text-align:center; color:var(--primary);">Tuckshop POS Beta</h2>
     <div class="watermark">Made for Spaza & Tuckshops</div>
@@ -282,7 +256,17 @@
         <input type="text" id="user-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/...">
         <button class="btn" style="background:#334155; color:white;" onclick="saveUserSheetURL()">Save My Sheet & Sync</button>
         <button class="btn btn-gray" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
-        <button class="btn btn-save" onclick="importMasterProducts()">Import Master Products</button>
+        
+        <!-- Import Master Products - only in Base mode -->
+        <button id="import-master-btn" class="btn btn-save" onclick="importMasterProducts()" 
+                style="margin-top:12px;">
+            Import Master Products
+        </button>
+
+        <!-- Upgrade Button -->
+        <button id="upgrade-btn" class="btn btn-upgrade" onclick="showUpgradeModal()" style="margin-top:20px;">
+            ⭐ Upgrade to Base Version - R349
+        </button>
 
         <div class="upgrade-msg" style="margin-top:20px;">
             More features coming soon.
@@ -339,6 +323,8 @@
     let floatKey = 'tuckshop_starting_float_' + new Date().toDateString();
     let hasPendingSync = false;
 
+    let isBaseVersion = false;   // Base upgrade flag
+
     const elements = {
         manualSearch: document.getElementById('manual-search'),
         searchResults: document.getElementById('search-results'),
@@ -365,7 +351,7 @@
     }
 
     function checkDailyLimit() {
-        if (dailyCount >= DAILY_LIMIT) {
+        if (!isBaseVersion && dailyCount >= DAILY_LIMIT) {
             const scanBtn = document.getElementById('scan-btn');
             if (scanBtn) scanBtn.disabled = true;
             if (elements.manualSearch) elements.manualSearch.disabled = true;
@@ -412,32 +398,127 @@
         };
     }
 
-    function showPrompt(message, defaultValue, onSubmit, isMoney = false) {
+    function showPrompt(message, defaultValue, onSubmit) {
         const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = isMoney ? "Cash Amount" : "Quantity";
+        document.getElementById('modal-title').textContent = "Quantity";
         document.getElementById('modal-body').innerHTML = `
             <p>${message}</p>
-            <input type="number" 
-                   step="${isMoney ? '0.01' : '1'}" 
-                   min="${isMoney ? '0' : '1'}" 
-                   id="modal-input" 
-                   class="modal-input" 
-                   value="${defaultValue || (isMoney ? '0.00' : '1')}">
+            <input type="number" step="1" min="1" id="modal-input" class="modal-input" value="${defaultValue || '1'}">
         `;
         document.getElementById('modal-buttons').innerHTML = `
             <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" id="prompt-ok">${isMoney ? 'Confirm Payment' : 'Add'}</button>
+            <button class="btn btn-save" id="prompt-ok">Add</button>
         `;
         modal.style.display = 'flex';
 
         document.getElementById('prompt-ok').onclick = () => {
-            const inputEl = document.getElementById('modal-input');
-            const value = isMoney 
-                ? parseFloat(inputEl.value) || 0 
-                : parseInt(inputEl.value) || 1;
+            const value = parseInt(document.getElementById('modal-input').value) || 1;
             closeModal();
             onSubmit(value);
         };
+    }
+
+    // ====================== UPGRADE SYSTEM ======================
+    function showUpgradeModal() {
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').textContent = "Upgrade to Base";
+        document.getElementById('modal-body').innerHTML = `
+            <p style="text-align:center; font-size:18px;">
+                Unlock the full Tuckshop POS for only <strong>R349</strong> (once-off)
+            </p>
+            <p style="font-size:15px; margin:20px 0;">
+                • Remove daily limit<br>
+                • Remove beta banner<br>
+                • Use your own Apps Script<br>
+                • Import Master Products<br>
+                • All future updates included
+            </p>
+            <p style="text-align:center; color:#f59e0b; font-weight:600;">
+                After payment you will receive a unique code via WhatsApp.
+            </p>
+        `;
+        document.getElementById('modal-buttons').innerHTML = `
+            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-save" onclick="enterActivationCode()">I have my code</button>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function enterActivationCode() {
+        closeModal();
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').textContent = "Activate Base Version";
+        document.getElementById('modal-body').innerHTML = `
+            <p>Enter your activation code:</p>
+            <input type="text" id="activation-input" class="modal-input" placeholder="BASE-XXXX-XXXX" style="text-transform:uppercase;">
+        `;
+        document.getElementById('modal-buttons').innerHTML = `
+            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-save" onclick="activateBaseVersion()">Activate</button>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function activateBaseVersion() {
+        const code = document.getElementById('activation-input').value.trim().toUpperCase();
+        if (code.startsWith("BASE-") && code.length > 8) {
+            isBaseVersion = true;
+            localStorage.setItem('isBaseVersion', 'true');
+            closeModal();
+            showMessage("✅ Base Version activated!", () => {
+                hideBetaBanner();
+                checkDailyLimit();
+                updateImportMasterButton();
+                showMigrationGuide();
+            });
+        } else {
+            showMessage("Invalid code. Please check the code you received.");
+        }
+    }
+
+    function hideBetaBanner() {
+        const banner = document.getElementById('beta-banner');
+        if (banner) banner.style.display = 'none';
+    }
+
+    function updateImportMasterButton() {
+        const btn = document.getElementById('import-master-btn');
+        if (btn) {
+            if (isBaseVersion) {
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                btn.textContent = "Import Master Products";
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = "0.6";
+                btn.textContent = "Import Master Products (Base only)";
+            }
+        }
+    }
+
+    function showMigrationGuide() {
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').textContent = "Migrate to Your Own Apps Script";
+        document.getElementById('modal-body').innerHTML = `
+            <p style="font-size:15px; line-height:1.6;">
+                To run the full version independently:<br><br>
+                1. Click the button below to open a new Apps Script<br>
+                2. Replace everything with the code I will send you<br>
+                3. Deploy as web app (Anyone with the link)<br>
+                4. Paste the new URL back into Settings
+            </p>
+        `;
+        document.getElementById('modal-buttons').innerHTML = `
+            <button class="btn btn-gray" onclick="closeModal()">Later</button>
+            <button class="btn btn-save" onclick="startMigration()">Open My Apps Script</button>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function startMigration() {
+        closeModal();
+        window.open("https://script.google.com/home", "_blank");
+        showMessage("1. Create a new project<br>2. Replace all code with the version I will send you<br>3. Deploy → New deployment → Web app → Anyone<br><br>Then paste the new URL into Settings.", () => {});
     }
 
     // ====================== INVENTORY & DAILY ======================
@@ -476,7 +557,11 @@
     }
 
     function incrementDailyCount() {
-        dailyCount = Math.min(dailyCount + 1, DAILY_LIMIT);
+        if (!isBaseVersion) {
+            dailyCount = Math.min(dailyCount + 1, DAILY_LIMIT);
+        } else {
+            dailyCount++;
+        }
         localStorage.setItem(todayKey, dailyCount);
         updateDailyDisplay();
         checkDailyLimit();
@@ -853,7 +938,7 @@
     }
 
     function addToCart(barcodeStr) {
-        if (dailyCount >= DAILY_LIMIT) return showMessage("Daily limit reached.");
+        if (!isBaseVersion && dailyCount >= DAILY_LIMIT) return showMessage("Daily limit reached.");
         const normalized = normalizeBarcode(barcodeStr);
         const item = inventory.find(i => normalizeBarcode(i.barcode) === normalized);
         if (!item) return showMessage("Item not found.");
@@ -903,12 +988,14 @@
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        let total = cart.reduce((sum, item) => sum + (Number(item.price) * item.qty), 0);
+        let total = cart.reduce((sum, item) => {
+            return sum + (Number(item.price) * item.qty);
+        }, 0);
         total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
-                   async (cashInput) => {
+                   (cashInput) => {
 
             let cash = parseFloat(cashInput);
             if (isNaN(cash)) {
@@ -955,45 +1042,15 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
-            // === FAST AUTO-SYNC: Only sold items ===
-            const soldItems = cart.map(cartItem => {
-                const norm = normalizeBarcode(cartItem.barcode);
-                const item = inventory.find(i => normalizeBarcode(i.barcode) === norm);
-                return {
-                    barcode: norm,
-                    stockQty: item ? item.stockQty : 0
-                };
-            });
-
-            // Silent fast sync of only changed items
-            const sheetUrl = document.getElementById('user-sheet-url').value.trim();
-            if (sheetUrl && soldItems.length) {
-                try {
-                    await fetch(APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({
-                            action: "updateSoldItems",
-                            sheetUrl: sheetUrl,
-                            soldItems: soldItems
-                        })
-                    });
-                    hasPendingSync = false;
-                    updateSyncButton();
-                } catch (e) {
-                    console.error("Auto sync failed", e);
-                    markAsPendingSync();   // show manual button
-                }
-            }
-
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
             });
-        }, true);
+        });
     }
 
+    // ====================== MANUAL SYNC BUTTON ======================
     function updateSyncButton() {
         const syncBtn = document.getElementById('sync-btn');
         if (syncBtn) {
@@ -1006,27 +1063,23 @@
         updateSyncButton();
     }
 
-    // ====================== MANUAL / AUTO SYNC ======================
-    async function syncStockToSheet(isAuto = false) {
+    async function syncStockToSheet() {
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) {
-            if (!isAuto) showMessage("Please set your Google Sheet URL in Settings first.");
-            return false;
+            showMessage("Please set your Google Sheet URL in Settings first.");
+            return;
         }
 
-        // Only show modal if user manually clicked the button
-        if (!isAuto) {
-            const modal = document.getElementById('custom-modal');
-            document.getElementById('modal-title').textContent = "Syncing Stock";
-            document.getElementById('modal-body').innerHTML = `
-                <p style="text-align:center; padding:30px 20px;">
-                    Updating stock levels in Google Sheet...<br><br>
-                    <div class="spinner"></div>
-                </p>
-            `;
-            document.getElementById('modal-buttons').innerHTML = '';
-            modal.style.display = 'flex';
-        }
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').textContent = "Syncing Stock";
+        document.getElementById('modal-body').innerHTML = `
+            <p style="text-align:center; padding:30px 20px;">
+                Updating stock levels in Google Sheet...<br><br>
+                <div class="spinner"></div>
+            </p>
+        `;
+        document.getElementById('modal-buttons').innerHTML = '';
+        modal.style.display = 'flex';
 
         try {
             for (const item of inventory) {
@@ -1040,24 +1093,12 @@
             hasPendingSync = false;
             updateSyncButton();
 
-            if (!isAuto) {
-                showMessage("✅ Stock successfully synced to sheet.", () => {
-                    fetchInventoryFromSheet(); 
-                });
-            }
-
-            return true;   // success
-
+            showMessage("✅ Stock successfully synced to sheet.", () => {
+                fetchInventoryFromSheet(); 
+            });
         } catch (e) {
-            console.error("Auto-sync failed:", e);
-            hasPendingSync = true;
-            updateSyncButton();
-
-            if (!isAuto) {
-                showMessage("⚠️ Sync failed. Stock is saved locally.");
-            }
-
-            return false;  // failure
+            console.error(e);
+            showMessage("⚠️ Sync failed. Stock is saved locally.");
         }
     }
 
@@ -1065,12 +1106,8 @@
     function showCashUp() {
         const expectedSales = dailyTotal;
         const expectedCash = startingFloat + expectedSales;
-
-        showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, 
-                   expectedCash.toFixed(2), 
-                   (cashCounted) => {
-            showPrompt("Card payments total:", "0", 
-                       (cardTotal) => {
+        showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, expectedCash.toFixed(2), (cashCounted) => {
+            showPrompt("Card payments total:", "0", (cardTotal) => {
                 const actual = cashCounted + cardTotal;
                 const variance = actual - expectedCash;
                 let msg = `CASH UP SUMMARY\n\n`;
@@ -1082,17 +1119,14 @@
                 if (variance > 0) msg += `✅ OVER by R${variance.toFixed(2)}`;
                 else if (variance < 0) msg += `⚠️ SHORT by R${Math.abs(variance).toFixed(2)}`;
                 else msg += `✅ Perfect match!`;
-                
                 showMessage(msg, () => {
-                    showPrompt("Starting float for next shift:", 
-                               cashCounted.toFixed(2), 
-                               (newFloat) => {
+                    showPrompt("Starting float for next shift:", cashCounted.toFixed(2), (newFloat) => {
                         startingFloat = newFloat;
                         localStorage.setItem(floatKey, startingFloat);
-                    }, true);
+                    });
                 });
-            }, true);
-        }, true);
+            });
+        });
     }
 
     // ====================== SETTINGS & SYNC ======================
@@ -1151,7 +1185,13 @@
         }
     }
 
+    // Import Master Products - only allowed in Base mode
     async function importMasterProducts() {
+        if (!isBaseVersion) {
+            showMessage("Import Master Products is available only in the Base version.<br><br>Please upgrade for R349.");
+            return;
+        }
+
         const sheetUrl = document.getElementById('user-sheet-url').value.trim();
         if (!sheetUrl) return showMessage("Please enter your Google Sheet URL first.");
 
@@ -1219,7 +1259,7 @@
     const SCAN_COOLDOWN_MS = 2000;
 
     async function startScanner(mode) {
-        if (dailyCount >= DAILY_LIMIT && mode === 'sale') {
+        if (!isBaseVersion && dailyCount >= DAILY_LIMIT && mode === 'sale') {
             showMessage("Daily limit reached.");
             return;
         }
@@ -1351,6 +1391,11 @@
 
     // ====================== WINDOW ONLOAD ======================
     window.onload = () => {
+        isBaseVersion = localStorage.getItem('isBaseVersion') === 'true';
+        if (isBaseVersion) {
+            hideBetaBanner();
+        }
+
         loadSettings();
         loadInventoryFromLocal();
         loadDailySales();
@@ -1372,6 +1417,8 @@
                 localStorage.setItem('markup-' + cat, defaultVal);
             }
         }); 
+
+        updateImportMasterButton();
         updateSyncButton();
     };
 
@@ -1392,7 +1439,6 @@
 
         if (isStandalone && installBanner) {
             installBanner.style.display = 'none';
-            console.log('✅ Running in standalone mode - hiding install banner');
         } else if (installBanner) {
             installBanner.style.display = 'block';
         }
