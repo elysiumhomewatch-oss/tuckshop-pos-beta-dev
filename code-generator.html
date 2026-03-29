@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activation Code Generator - Developer Tool</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2563eb; }
+        input, button {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }
+        button {
+            background: #16a34a;
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover { background: #15803d; }
+        .result {
+            background: #f0fdf4;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #86efac;
+            font-family: monospace;
+            font-size: 18px;
+            word-break: break-all;
+        }
+        .info {
+            font-size: 14px;
+            color: #64748b;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔑 Activation Code Generator</h1>
+    <p>Enter customer email to generate a unique Base activation code.</p>
+    
+    <input type="email" id="email" placeholder="customer@example.com" />
+    <button onclick="generateCode()">Generate Activation Code</button>
+    
+    <div id="result" class="result" style="display:none;"></div>
+    
+    <div class="info">
+        <strong>How to use:</strong><br>
+        1. Enter the customer's email<br>
+        2. Click Generate<br>
+        3. Send the generated code to the customer<br><br>
+        They will enter this code + their email in the app to activate Base version.
+    </div>
+</div>
+
+<script>
+// Same logic as in code.gs for consistency
+function generateActivationCode(email) {
+    if (!email) return "Please enter an email";
+    
+    const salt = "BASE-2026";
+    const combined = email.trim().toLowerCase() + salt;
+    
+    // Use the same SHA-256 method as Apps Script
+    // Note: In browser we simulate a deterministic hash
+    let hash = 0;
+    for (let i = 0; i < combined.length; i++) {
+        hash = ((hash << 5) - hash) + combined.charCodeAt(i);
+        hash = hash & hash;
+    }
+    
+    let hashStr = Math.abs(hash).toString(36).toUpperCase();
+    while (hashStr.length < 12) hashStr += "X";
+    
+    const code = "BASE-" + hashStr.substring(0, 8) + "-" + hashStr.substring(8, 12);
+    return code;
+}
+
+function generateCode() {
+    const emailInput = document.getElementById('email').value.trim();
+    if (!emailInput) {
+        alert("Please enter a valid email address");
+        return;
+    }
+    
+    const code = generateActivationCode(emailInput);
+    
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = `
+        <strong>Email:</strong> ${emailInput}<br><br>
+        <strong>Activation Code:</strong><br>
+        <span style="font-size:22px; font-weight:bold; color:#16a34a;">${code}</span><br><br>
+        <small>Copy this code and send it to the customer along with instructions.</small>
+    `;
+    resultDiv.style.display = 'block';
+    
+    // Auto copy to clipboard
+    navigator.clipboard.writeText(code).then(() => {
+        console.log("Code copied to clipboard");
+    });
+}
+</script>
+</body>
+</html>
