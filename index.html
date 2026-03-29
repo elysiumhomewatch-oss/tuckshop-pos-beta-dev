@@ -270,7 +270,7 @@
         </button>
 
         <button id="upgrade-btn" class="btn btn-upgrade" onclick="showUpgradeModal()" style="margin-top:20px;">
-            ⭐ Upgrade to Base Version - R349
+            ⭐ Upgrade to Base Version - R649
         </button>
 
         <div class="upgrade-msg" style="margin-top:20px;">
@@ -415,7 +415,7 @@
     // ====================== UPGRADE / ACTIVATION FLOW ======================
     function showUpgradeModal() {
         showConfirm(
-            "Upgrade to Base Version (R349 one-time)?\n\nUnlocks:\n• Unlimited daily sales\n• Import Master Products\n• Remove Beta banner", 
+            "Upgrade to Base Version (R649 one-time)?\n\nUnlocks:\n• Unlimited daily sales\n• Import Master Products\n• Remove Beta banner", 
             () => {
                 showActivationInput();
             }
@@ -1291,7 +1291,7 @@
     // ====================== CASH UP ======================
     function showCashUp() {
         if (!isBaseVersion) {
-            showMessage("Cash Up / Float Check is a Base version feature.\n\nPlease upgrade to Base (R349) to access full cash management tools.");
+            showMessage("Cash Up / Float Check is a Base version feature.\n\nPlease upgrade to Base (R649) to access full cash management tools.");
             return;
         }
 
@@ -1385,7 +1385,7 @@
 
     async function importMasterProducts() {
         if (!isBaseVersion) {
-            showMessage("Import Master Products is available only in the Base version.<br><br>Please upgrade for R349.");
+            showMessage("Import Master Products is available only in the Base version.<br><br>Please upgrade for R649.");
             return;
         }
 
