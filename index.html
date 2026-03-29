@@ -381,6 +381,84 @@
         document.getElementById('custom-modal').style.display = 'none';
     }
 
+    // ====================== UPGRADE / ACTIVATION FLOW ======================
+    function showUpgradeModal() {
+        showConfirm(
+            "Upgrade to Base Version (R349 one-time)?\n\nUnlocks:\n• Unlimited daily sales\n• Import Master Products\n• Remove Beta banner", 
+            () => {
+                showActivationInput();
+            }
+        );
+    }
+
+    function showActivationInput() {
+        const modalContent = `
+            <h3>Activate Base Version</h3>
+            <p style="margin-bottom:12px;">Enter your email and the activation code you received.</p>
+            
+            <input type="email" id="activation-email" placeholder="your@email.com" 
+                   style="width:100%; padding:12px; margin:8px 0; font-size:16px; border:1px solid #cbd5e1; border-radius:8px;">
+            
+            <input type="text" id="activation-input" placeholder="BASE-XXXXXXXX-XXXX" 
+                   style="width:100%; padding:12px; margin:8px 0; font-size:16px; border:1px solid #cbd5e1; border-radius:8px;">
+            
+            <button onclick="activateBaseVersion()" 
+                    style="background:#16a34a; color:white; padding:14px; width:100%; border:none; border-radius:8px; margin-top:16px; font-weight:600;">
+                Activate Base Version
+            </button>
+            
+            <button onclick="closeModal()" 
+                    style="background:#e2e8f0; padding:14px; width:100%; border:none; border-radius:8px; margin-top:8px;">
+                Cancel
+            </button>
+        `;
+        
+        showCustomModal(modalContent);
+    }
+
+     function activateBaseVersion() {
+        const email = document.getElementById('activation-email').value.trim().toLowerCase();
+        const code = document.getElementById('activation-input').value.trim().toUpperCase();
+
+        if (!email || !code) {
+            showMessage("Please enter both your email and the activation code.");
+            return;
+        }
+
+        // Call Apps Script for validation
+        fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: "validateActivationCode",
+                email: email,
+                code: code
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success === true) {
+                isBaseVersion = true;
+                localStorage.setItem('isBaseVersion', 'true');
+                localStorage.setItem('baseEmail', email);
+                closeModal();
+
+                showMessage("✅ Base Version Activated Successfully!", () => {
+                    hideBetaBanner();
+                    updateImportMasterButton();
+                    checkDailyLimit();
+                    location.reload();   // Clean refresh to apply changes
+                });
+            } else {
+                showMessage("Invalid activation code for this email.\n\nPlease double-check the code.");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showMessage("Connection error. Please check your internet and try again.");
+        });
+    }
+
     function showMessage(message, callback = null) {
         const modal = document.getElementById('custom-modal');
         document.getElementById('modal-title').textContent = "Message";
@@ -469,41 +547,9 @@
         modal.style.display = 'flex';
     }
 
-    function activateBaseVersion() {
-        const code = document.getElementById('activation-input').value.trim().toUpperCase();
-        
-        if (code && code.length > 8) {   // Simple check - you can make it stricter later
-            isBaseVersion = true;
-            localStorage.setItem('isBaseVersion', 'true');
-            closeModal();
-            
-            showMessage("✅ Base Version Activated Successfully!", () => {
-                hideBetaBanner();
-                updateImportMasterButton();
-                checkDailyLimit();        // This will now allow unlimited sales
-                showMessage("All Base features are now unlocked. Enjoy!");
-            });
-        } else {
-            showMessage("Invalid activation code. Please try again or contact support.");
-        }
-    }
 
-    function activateBaseVersion() {
-        const code = document.getElementById('activation-input').value.trim().toUpperCase();
-        if (code.startsWith("BASE-") && code.length > 8) {
-            isBaseVersion = true;
-            localStorage.setItem('isBaseVersion', 'true');
-            closeModal();
-            showMessage("✅ Base Version activated!", () => {
-                hideBetaBanner();
-                checkDailyLimit();
-                updateImportMasterButton();   // ← Make sure this line is here
-                showMigrationGuide();
-            });
-        } else {
-            showMessage("Invalid code. Please check the code you received.");
-        }
-    }
+
+
 
     function hideBetaBanner() {
         const banner = document.getElementById('beta-banner');
