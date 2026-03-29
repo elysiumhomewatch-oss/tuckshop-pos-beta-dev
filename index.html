@@ -168,9 +168,10 @@
     <div id="sale-tab" class="tab-content active">
         <button id="scan-btn" class="btn btn-scan" onclick="startScanner('sale')">📷 Scan Item</button>
         <div style="position:relative;">
-            <input type="text" id="manual-search" placeholder="🔍 Search name or barcode..." oninput="handleSearch(this.value)">
+            <input type="text" id="manual-search" placeholder="Search item or barcode..." oninput="handleManualSearch(this.value)">
             <div id="search-results"></div>
         </div>
+        
         <div id="cart">
             <div id="cart-items-list"></div>
             <div style="display:flex; justify-content:space-between; font-size:22px; font-weight:800; padding:20px 0;">
@@ -182,9 +183,14 @@
         </div>
         <div id="sale-status" class="status"></div>
         
-        <div class="daily-summary">
-            <strong>Today's Sales:</strong> <span id="daily-total">R0.00</span> 
+            <div class="daily-summary">
+            <strong>Today's Sales:</strong> <span id="daily-total">R0.00</span>
             (<span id="daily-items">0</span> items)
+            
+            <div id="scans-left" style="margin-top:8px; font-size:14px; color:#f59e0b; font-weight:600;">
+                <!-- Scans left will be injected here -->
+            </div>
+            
             <button onclick="resetDailySales()" style="margin-left:12px; padding:4px 8px; font-size:12px;">Reset</button>
         </div>
 
@@ -257,6 +263,7 @@
         <button class="btn" style="background:#334155; color:white;" onclick="saveUserSheetURL()">Save My Sheet & Sync</button>
         <button class="btn btn-gray" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
         
+        <!-- Import Master Products - only enabled in Base mode -->
         <button id="import-master-btn" class="btn btn-save" onclick="importMasterProducts()" 
                 style="margin-top:12px;">
             Import Master Products
@@ -282,10 +289,15 @@
 </div>
 
 <script>
+    
     // ====================== CONFIG ======================
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxolWQptu1bI0dOm3AVPt254doF0NB6mjfk4KbxwrvzzRSnTLLUgph2ZNwNcDDlJxKusg/exec";
-    const DAILY_LIMIT = 100;
     const MAX_CATEGORIES = 15;
+
+    // ====================== VERSION CONTROL ======================
+    let isBaseVersion = false;           // Default = Free
+    const DAILY_LIMIT = 100;             // Only applies in Free mode
+    
 
     // ====================== UTILITY ======================
     function normalizeBarcode(barcode) {
@@ -321,7 +333,7 @@
     let floatKey = 'tuckshop_starting_float_' + new Date().toDateString();
     let hasPendingSync = false;
 
-    let isBaseVersion = false;
+    
 
     const elements = {
         manualSearch: document.getElementById('manual-search'),
@@ -343,16 +355,41 @@
         document.getElementById('nav-' + tab).classList.add('active');
     }
 
+
+    function updateScansLeftDisplay() {
+        const scansLeftEl = document.getElementById('scans-left');
+        if (!scansLeftEl) return;
+
+        if (isBaseVersion) {
+            scansLeftEl.innerHTML = '✅ <strong>Unlimited sales</strong> (Base Version)';
+            scansLeftEl.style.color = '#16a34a';
+        } else {
+            const salesLeft = Math.max(0, DAILY_LIMIT - dailyCount);
+            scansLeftEl.innerHTML = `🔢 <strong>${salesLeft}</strong> sales left today`;
+            scansLeftEl.style.color = salesLeft <= 3 ? '#dc2626' : '#f59e0b';
+        }
+    }
+
     function updateDailyDisplay() {
         elements.dailyTotalEl.textContent = 'R' + dailyTotal.toFixed(2);
         elements.dailyItemsEl.textContent = dailyCount;
     }
 
     function checkDailyLimit() {
-        if (!isBaseVersion && dailyCount >= DAILY_LIMIT) {
+        if (isBaseVersion) {
+            // Base version - always enabled
+            const scanBtn = document.getElementById('scan-btn');
+            if (scanBtn) scanBtn.disabled = false;
+            if (elements.manualSearch) elements.manualSearch.disabled = false;
+            return;
+        }
+
+        // Free version - apply limit
+        if (dailyCount >= DAILY_LIMIT) {
             const scanBtn = document.getElementById('scan-btn');
             if (scanBtn) scanBtn.disabled = true;
             if (elements.manualSearch) elements.manualSearch.disabled = true;
+            showMessage("Daily sales limit reached (Free version).\n\nUpgrade to Base for unlimited sales.");
         } else {
             const scanBtn = document.getElementById('scan-btn');
             if (scanBtn) scanBtn.disabled = false;
@@ -363,6 +400,93 @@
     // ====================== MODAL SYSTEM ======================
     function closeModal() {
         document.getElementById('custom-modal').style.display = 'none';
+    }
+
+    function showCustomModal(htmlContent) {
+        const modal = document.getElementById('custom-modal');
+        document.getElementById('modal-title').innerHTML = "";
+        document.getElementById('modal-body').innerHTML = htmlContent;
+        document.getElementById('modal-buttons').innerHTML = "";
+        modal.style.display = 'flex';
+    }
+
+    
+
+    // ====================== UPGRADE / ACTIVATION FLOW ======================
+    function showUpgradeModal() {
+        showConfirm(
+            "Upgrade to Base Version (R349 one-time)?\n\nUnlocks:\n• Unlimited daily sales\n• Import Master Products\n• Remove Beta banner", 
+            () => {
+                showActivationInput();
+            }
+        );
+    }
+
+    function showActivationInput() {
+        const modalContent = `
+            <h3>Activate Base Version</h3>
+            <p style="margin-bottom:12px;">Enter your email and the activation code you received.</p>
+            
+            <input type="email" id="activation-email" placeholder="your@email.com" 
+                   style="width:100%; padding:12px; margin:8px 0; font-size:16px; border:1px solid #cbd5e1; border-radius:8px;">
+            
+            <input type="text" id="activation-input" placeholder="BASE-XXXXXXXX-XXXX" 
+                   style="width:100%; padding:12px; margin:8px 0; font-size:16px; border:1px solid #cbd5e1; border-radius:8px;">
+            
+            <button onclick="activateBaseVersion()" 
+                    style="background:#16a34a; color:white; padding:14px; width:100%; border:none; border-radius:8px; margin-top:16px; font-weight:600;">
+                Activate Base Version
+            </button>
+            
+            <button onclick="closeModal()" 
+                    style="background:#e2e8f0; padding:14px; width:100%; border:none; border-radius:8px; margin-top:8px;">
+                Cancel
+            </button>
+        `;
+        
+        showCustomModal(modalContent);
+    }
+
+    function activateBaseVersion() {
+        const email = document.getElementById('activation-email').value.trim().toLowerCase();
+        const code = document.getElementById('activation-input').value.trim().toUpperCase();
+
+        if (!email || !code) {
+            showMessage("Please enter both your email and the activation code.");
+            return;
+        }
+
+        fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: "validateActivationCode",
+                email: email,
+                code: code
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success === true) {
+                isBaseVersion = true;
+                localStorage.setItem('isBaseVersion', 'true');
+                localStorage.setItem('baseEmail', email);
+                closeModal();
+
+                showMessage("✅ Base Version Activated Successfully!", () => {
+                    hideBetaBanner();
+                    updateImportMasterButton();
+                    hideUpgradeButtons();     // ← ADD THIS LINE
+                    checkDailyLimit();
+                    location.reload();
+                });
+            } else {
+                showMessage("Invalid activation code for this email.\n\nPlease double-check the code.");
+            }
+        })
+        .catch(() => {
+            showMessage("Connection error. Please try again.");
+        });
     }
 
     function showMessage(message, callback = null) {
@@ -428,62 +552,11 @@
     }
 
     // ====================== UPGRADE SYSTEM ======================
-    function showUpgradeModal() {
-        const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Upgrade to Base";
-        document.getElementById('modal-body').innerHTML = `
-            <p style="text-align:center; font-size:18px;">
-                Unlock the full Tuckshop POS for only <strong>R349</strong> (once-off)
-            </p>
-            <p style="font-size:15px; margin:20px 0;">
-                • Remove daily limit<br>
-                • Remove beta banner<br>
-                • Use your own Apps Script<br>
-                • Import Master Products<br>
-                • All future updates included
-            </p>
-            <p style="text-align:center; color:#f59e0b; font-weight:600;">
-                After payment you will receive a unique code via WhatsApp.
-            </p>
-        `;
-        document.getElementById('modal-buttons').innerHTML = `
-            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" onclick="enterActivationCode()">I have my code</button>
-        `;
-        modal.style.display = 'flex';
-    }
 
-    function enterActivationCode() {
-        closeModal();
-        const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Activate Base Version";
-        document.getElementById('modal-body').innerHTML = `
-            <p>Enter your activation code:</p>
-            <input type="text" id="activation-input" class="modal-input" placeholder="BASE-XXXX-XXXX" style="text-transform:uppercase;">
-        `;
-        document.getElementById('modal-buttons').innerHTML = `
-            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" onclick="activateBaseVersion()">Activate</button>
-        `;
-        modal.style.display = 'flex';
-    }
 
-    function activateBaseVersion() {
-        const code = document.getElementById('activation-input').value.trim().toUpperCase();
-        if (code.startsWith("BASE-") && code.length > 8) {
-            isBaseVersion = true;
-            localStorage.setItem('isBaseVersion', 'true');
-            closeModal();
-            showMessage("✅ Base Version activated!", () => {
-                hideBetaBanner();
-                checkDailyLimit();
-                updateImportMasterButton();
-                showMigrationGuide();
-            });
-        } else {
-            showMessage("Invalid code. Please check the code you received.");
-        }
-    }
+
+
+
 
     function hideBetaBanner() {
         const banner = document.getElementById('beta-banner');
@@ -492,17 +565,29 @@
 
     function updateImportMasterButton() {
         const btn = document.getElementById('import-master-btn');
-        if (btn) {
-            if (isBaseVersion) {
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                btn.textContent = "Import Master Products";
-            } else {
-                btn.disabled = true;
-                btn.style.opacity = "0.6";
-                btn.textContent = "Import Master Products (Base only)";
-            }
+        if (!btn) return;
+
+        if (isBaseVersion) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.textContent = "Import Master Products";
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = "0.6";
+            btn.textContent = "Import Master Products (Base only)";
         }
+    }
+
+
+    // Hide upgrade buttons after successful activation
+    function hideUpgradeButtons() {
+        // Hide button in Sale tab
+        const saleUpgradeBtn = document.querySelector('#sale-tab .btn-upgrade');
+        if (saleUpgradeBtn) saleUpgradeBtn.style.display = 'none';
+
+        // Hide button in Settings tab
+        const settingsUpgradeBtn = document.getElementById('upgrade-btn');
+        if (settingsUpgradeBtn) settingsUpgradeBtn.style.display = 'none';
     }
 
     function showMigrationGuide() {
@@ -540,6 +625,21 @@
         localStorage.setItem('tuckshop_inventory', JSON.stringify(inventory));
     }
 
+    function checkAndResetDailyIfNewDay() {
+        const savedDate = localStorage.getItem('lastResetDate');
+        const today = new Date().toDateString();
+
+        if (savedDate !== today) {
+            // New day - auto reset
+            dailyCount = 0;
+            dailyTotal = 0;
+            localStorage.setItem(todayKey, '0');
+            localStorage.setItem(dailyTotalKey, '0');
+            localStorage.setItem('lastResetDate', today);
+            updateDailyDisplay();
+        }
+    }
+    
     function loadDailySales() {
         dailyTotal = parseFloat(localStorage.getItem(dailyTotalKey) || '0');
         updateDailyDisplay();
@@ -566,13 +666,16 @@
     }
 
     function incrementDailyCount() {
-        if (!isBaseVersion) {
-            dailyCount = Math.min(dailyCount + 1, DAILY_LIMIT);
-        } else {
+        if (isBaseVersion) {
             dailyCount++;
+        } else {
+            // Count each different item (line) in the cart — not the quantity
+            const uniqueLines = cart.length;
+            dailyCount = Math.min(dailyCount + uniqueLines, DAILY_LIMIT);
         }
         localStorage.setItem(todayKey, dailyCount);
         updateDailyDisplay();
+        updateScansLeftDisplay();     // This must be called
         checkDailyLimit();
     }
 
@@ -590,16 +693,27 @@
     }
 
     function resetDailySales() {
-        showConfirm("Reset today's sales and float?", () => {
-            dailyCount = 0;
-            dailyTotal = 0;
-            startingFloat = 0;
-            localStorage.setItem(todayKey, '0');
-            localStorage.setItem(dailyTotalKey, '0');
-            localStorage.setItem(floatKey, '0');
-            updateDailyDisplay();
-            showMessage("Daily reset complete.");
-        });
+        if (isBaseVersion) {
+            // Base version can reset freely
+            showConfirm("Reset today's sales and float?", () => {
+                performDailyReset();
+            });
+        } else {
+            // Free version - prevent manual reset
+            showMessage("Daily sales reset is not available in the Free version.\n\nThe counter resets automatically tomorrow.");
+        }
+    }
+
+    // Internal function that actually does the reset
+    function performDailyReset() {
+        dailyCount = 0;
+        dailyTotal = 0;
+        startingFloat = 0;
+        localStorage.setItem(todayKey, '0');
+        localStorage.setItem(dailyTotalKey, '0');
+        localStorage.setItem(floatKey, '0');
+        updateDailyDisplay();
+        showMessage("Daily reset complete.");
     }
 
     // ====================== CATEGORIES ======================
@@ -961,7 +1075,7 @@
         elements.manualSearch.value = '';
         elements.searchResults.style.display = 'none';
         renderCart();
-        incrementDailyCount();
+        //incrementDailyCount();
     }
 
     function renderCart() {
@@ -973,6 +1087,45 @@
         `).join('');
         const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
         elements.grandTotal.textContent = 'R' + total.toFixed(2);
+    }
+
+    function handleManualSearch(val) {
+        if (!val || val.length < 2) {
+            if (elements.searchResults) elements.searchResults.style.display = 'none';
+            return;
+        }
+
+        const lower = val.toLowerCase();
+        const normalized = normalizeBarcode(val);
+
+        const filtered = inventory.filter(i => 
+            (i.name || '').toLowerCase().includes(lower) || 
+            normalizeBarcode(i.barcode) === normalized
+        );
+
+        if (elements.searchResults) {
+            elements.searchResults.innerHTML = filtered.map(item => `
+                <div class="search-row" onclick="selectItemFromSearch('${String(item.barcode)}')">
+                    ${item.name} (${item.barcode})
+                </div>
+            `).join('');
+
+            elements.searchResults.style.display = filtered.length ? 'block' : 'none';
+        }
+    }
+
+    function selectItemFromSearch(barcode) {
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalizeBarcode(barcode));
+        if (item) {
+            showQuantityModal(item);
+            // Clear search after selection
+            if (elements.manualSearch) {
+                elements.manualSearch.value = '';
+            }
+            if (elements.searchResults) {
+                elements.searchResults.style.display = 'none';
+            }
+        }
     }
 
     function removeFromCart(idx) {
@@ -999,7 +1152,7 @@
         if (completeBtn) completeBtn.disabled = true;
 
         let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
-        total = Math.round(total * 100) / 100;   // ← clean cents
+        total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
@@ -1011,7 +1164,7 @@
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
-            cash = Math.round(cash * 100) / 100;   // ← clean cents
+            cash = Math.round(cash * 100) / 100;
 
             if (cash < total) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
@@ -1049,21 +1202,47 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
+            // SUCCESS - increment daily count based on number of unique lines
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
+                incrementDailyCount();   // This should now work correctly
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
+                
+                
             });
-        }, true);   // ← isMoney = true (critical)
+        }, true);
     }
 
     // ====================== SYNC BUTTON ======================
-    function updateSyncButton() {
-        const syncBtn = document.getElementById('sync-btn');
-        if (syncBtn) {
-            syncBtn.style.display = hasPendingSync ? 'block' : 'none';
+    function updateImportMasterButton() {
+        const btn = document.getElementById('import-master-btn');
+        if (btn) {
+            if (isBaseVersion) {
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                btn.textContent = "Import Master Products";
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = "0.6";
+                btn.textContent = "Import Master Products (Base only)";
+            }
         }
     }
+    // ====================== SYNC BUTTON VISIBILITY ======================
+    function updateSyncButton() {
+        const syncBtn = document.getElementById('sync-stock-btn');
+        if (!syncBtn) return;
+
+        // Show sync button only if there are pending changes (you can expand this logic later)
+        const hasPending = localStorage.getItem('hasPendingSync') === 'true';
+        syncBtn.style.display = hasPending ? 'block' : 'none';
+    }
+
+    function markAsPendingSync() {
+        localStorage.setItem('hasPendingSync', 'true');
+        updateSyncButton();
+    }    
 
     function markAsPendingSync() {
         hasPendingSync = true;
@@ -1111,24 +1290,36 @@
 
     // ====================== CASH UP ======================
     function showCashUp() {
+        if (!isBaseVersion) {
+            showMessage("Cash Up / Float Check is a Base version feature.\n\nPlease upgrade to Base (R349) to access full cash management tools.");
+            return;
+        }
+
+        // Base version - full cash up flow
         const expectedSales = dailyTotal;
         const expectedCash = startingFloat + expectedSales;
-        showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, expectedCash.toFixed(2), (cashCounted) => {
-            showPrompt("Card payments total:", "0", (cardTotal) => {
-                const actual = cashCounted + cardTotal;
+
+        showPrompt(`Cash Up\nExpected: R${expectedCash.toFixed(2)}\nCash in drawer:`, 
+                   expectedCash.toFixed(2), 
+                   (cashCounted) => {
+            showPrompt("Card payments / slips total:", "0", (cardTotal) => {
+                const actual = parseFloat(cashCounted) + parseFloat(cardTotal);
                 const variance = actual - expectedCash;
+
                 let msg = `CASH UP SUMMARY\n\n`;
                 msg += `Starting Float: R${startingFloat.toFixed(2)}\n`;
                 msg += `Today's Sales: R${expectedSales.toFixed(2)}\n`;
-                msg += `Expected Cash: R${expectedCash.toFixed(2)}\n`;
+                msg += `Expected: R${expectedCash.toFixed(2)}\n`;
                 msg += `Actual: R${actual.toFixed(2)}\n`;
                 msg += `Variance: R${variance.toFixed(2)}\n\n`;
+
                 if (variance > 0) msg += `✅ OVER by R${variance.toFixed(2)}`;
                 else if (variance < 0) msg += `⚠️ SHORT by R${Math.abs(variance).toFixed(2)}`;
                 else msg += `✅ Perfect match!`;
+
                 showMessage(msg, () => {
                     showPrompt("Starting float for next shift:", cashCounted.toFixed(2), (newFloat) => {
-                        startingFloat = newFloat;
+                        startingFloat = parseFloat(newFloat) || 0;
                         localStorage.setItem(floatKey, startingFloat);
                     });
                 });
@@ -1397,8 +1588,10 @@
     // ====================== WINDOW ONLOAD ======================
     window.onload = () => {
         isBaseVersion = localStorage.getItem('isBaseVersion') === 'true';
+        checkAndResetDailyIfNewDay();
         if (isBaseVersion) {
             hideBetaBanner();
+            hideUpgradeButtons();  
         }
 
         loadSettings();
@@ -1411,8 +1604,9 @@
         
         dailyCount = parseInt(localStorage.getItem(todayKey) || '0');
         updateDailyDisplay();
+        updateScansLeftDisplay();
         checkDailyLimit();
-        
+        updateImportMasterButton();
         populateCategoryDropdown();
         loadCategoriesFromSheet();
 
@@ -1423,8 +1617,9 @@
             }
         }); 
 
-        updateImportMasterButton();
+        
         updateSyncButton();
+        
     };
 
     // ====================== PWA SUPPORT ======================
