@@ -1131,6 +1131,20 @@
             }
         }
     }
+    // ====================== SYNC BUTTON VISIBILITY ======================
+    function updateSyncButton() {
+        const syncBtn = document.getElementById('sync-stock-btn');
+        if (!syncBtn) return;
+
+        // Show sync button only if there are pending changes (you can expand this logic later)
+        const hasPending = localStorage.getItem('hasPendingSync') === 'true';
+        syncBtn.style.display = hasPending ? 'block' : 'none';
+    }
+
+    function markAsPendingSync() {
+        localStorage.setItem('hasPendingSync', 'true');
+        updateSyncButton();
+    }    
 
     function markAsPendingSync() {
         hasPendingSync = true;
