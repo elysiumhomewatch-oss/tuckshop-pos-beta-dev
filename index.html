@@ -1152,7 +1152,7 @@
         if (completeBtn) completeBtn.disabled = true;
 
         let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
-        total = Math.round(total * 100) / 100;   // ← clean cents
+        total = Math.round(total * 100) / 100;
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
@@ -1164,7 +1164,7 @@
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
-            cash = Math.round(cash * 100) / 100;   // ← clean cents
+            cash = Math.round(cash * 100) / 100;
 
             if (cash < total) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
@@ -1202,14 +1202,15 @@
             localStorage.setItem('tuckshop_transactions', JSON.stringify(transactions));
             renderTransactionLog();
 
+            // SUCCESS - increment daily count based on number of unique lines
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
                 
-                incrementDailyCount();   // ← Only call here, once per completed sale
+                incrementDailyCount();   // This should now work correctly
             });
-        }, true);   // ← isMoney = true (critical)
+        }, true);
     }
 
     // ====================== SYNC BUTTON ======================
