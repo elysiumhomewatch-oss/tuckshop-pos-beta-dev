@@ -546,7 +546,10 @@
         `;
         document.getElementById('modal-buttons').innerHTML = `
             <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" onclick="enterActivationCode()">I have my code</button>
+            <button onclick="showUpgradeModal()" 
+                style="background:#f59e0b; color:white; padding:12px; margin:10px 0; width:100%; border:none; border-radius:8px; font-weight:600;">
+                🔓 Upgrade to Base Version (R349)
+            </button>
         `;
         modal.style.display = 'flex';
     }
