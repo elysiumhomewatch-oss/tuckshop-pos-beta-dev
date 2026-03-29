@@ -988,11 +988,7 @@
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        // Calculate total safely
-        let total = cart.reduce((sum, item) => {
-            return sum + (Number(item.price) * item.qty);
-        }, 0);
-        total = Math.round(total * 100) / 100;
+        const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
@@ -1005,19 +1001,14 @@
                 return;
             }
 
-            cash = Math.round(cash * 100) / 100;
-
-            // MOST RELIABLE COMPARISON - uses cents to avoid all floating point issues
-            const totalCents = Math.round(total * 100);
-            const cashCents = Math.round(cash * 100);
-
-            if (cashCents < totalCents) {
+            // Reliable comparison with small tolerance for floating point issues
+            if (cash < total - 0.005) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
 
-            const change = (cashCents - totalCents) / 100;
+            const change = cash - total;
 
             // Deduct stock locally
             cart.forEach(cartItem => {
