@@ -183,10 +183,15 @@
         </div>
         <div id="sale-status" class="status"></div>
         
-        <div class="daily-summary">
-            <strong>Today's Sales:</strong> <span id="daily-total">R0.00</span> 
+            <div class="daily-summary">
+            <strong>Today's Sales:</strong> <span id="daily-total">R0.00</span>
             (<span id="daily-items">0</span> items)
-             <button onclick="resetDailySales()" style="margin-left:12px; padding:4px 8px; font-size:12px;">Reset</button>
+            
+            <div id="scans-left" style="margin-top:8px; font-size:14px; color:#f59e0b; font-weight:600;">
+                <!-- Scans left will be injected here -->
+            </div>
+            
+            <button onclick="resetDailySales()" style="margin-left:12px; padding:4px 8px; font-size:12px;">Reset</button>
         </div>
 
         <div class="transaction-log">
@@ -348,6 +353,21 @@
         document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
         document.getElementById(tab + '-tab').classList.add('active');
         document.getElementById('nav-' + tab).classList.add('active');
+    }
+
+
+    function updateScansLeftDisplay() {
+        const scansLeftEl = document.getElementById('scans-left');
+        if (!scansLeftEl) return;
+
+        if (isBaseVersion) {
+            scansLeftEl.innerHTML = '✅ <strong>Unlimited scans</strong> (Base Version)';
+            scansLeftEl.style.color = '#16a34a';
+        } else {
+            const scansLeft = Math.max(0, DAILY_LIMIT - dailyCount);
+            scansLeftEl.innerHTML = `🔢 <strong>${scansLeft}</strong> scans left today`;
+            scansLeftEl.style.color = scansLeft <= 5 ? '#dc2626' : '#f59e0b';
+        }
     }
 
     function updateDailyDisplay() {
@@ -653,6 +673,7 @@
         }
         localStorage.setItem(todayKey, dailyCount);
         updateDailyDisplay();
+        updateScansLeftDisplay();   // ← ADD THIS
         checkDailyLimit();
     }
 
