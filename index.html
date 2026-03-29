@@ -398,21 +398,35 @@
         };
     }
 
-    function showPrompt(message, defaultValue, onSubmit) {
+    function showPrompt(message, defaultValue, onSubmit, isMoney = false) {
         const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Quantity";
+        document.getElementById('modal-title').textContent = isMoney ? "Cash Amount" : "Quantity";
         document.getElementById('modal-body').innerHTML = `
             <p>${message}</p>
-            <input type="number" step="1" min="1" id="modal-input" class="modal-input" value="${defaultValue || '1'}">
+            <input type="number" 
+                   step="${isMoney ? '0.01' : '1'}" 
+                   min="${isMoney ? '0' : '1'}" 
+                   id="modal-input" 
+                   class="modal-input" 
+                   value="${defaultValue || (isMoney ? '0.00' : '1')}">
         `;
         document.getElementById('modal-buttons').innerHTML = `
             <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" id="prompt-ok">Add</button>
+            <button class="btn btn-save" id="prompt-ok">${isMoney ? 'Confirm Payment' : 'Add'}</button>
         `;
         modal.style.display = 'flex';
 
         document.getElementById('prompt-ok').onclick = () => {
-            const value = parseInt(document.getElementById('modal-input').value) || 1;
+            const inputEl = document.getElementById('modal-input');
+            let value;
+
+            if (isMoney) {
+                value = parseFloat(inputEl.value) || 0;
+                value = Math.round(value * 100) / 100;   // Ensure clean cents
+            } else {
+                value = parseInt(inputEl.value) || 1;
+            }
+
             closeModal();
             onSubmit(value);
         };
