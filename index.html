@@ -168,7 +168,7 @@
     <div id="sale-tab" class="tab-content active">
         <button id="scan-btn" class="btn btn-scan" onclick="startScanner('sale')">📷 Scan Item</button>
         <div style="position:relative;">
-            <input type="text" id="manual-search" placeholder="🔍 Search name or barcode..." oninput="handleSearch(this.value)">
+            <input type="text" id="manual-search" placeholder="Search item or barcode..." oninput="handleManualSearch(this.value)">
             <div id="search-results"></div>
         </div>
         <div id="cart">
@@ -327,7 +327,7 @@
     let floatKey = 'tuckshop_starting_float_' + new Date().toDateString();
     let hasPendingSync = false;
 
-    let isBaseVersion = false;
+    
 
     const elements = {
         manualSearch: document.getElementById('manual-search'),
@@ -355,15 +355,25 @@
     }
 
     function checkDailyLimit() {
-        if (isBaseVersion) return;   // Base version has no limit
-
-        if (dailyCount >= DAILY_LIMIT) {
-            showMessage("Daily sales limit reached in Free version.\n\nPlease upgrade to Base for unlimited sales.", () => {
-                showUpgradeModal();
-            });
-            return true;
+        if (isBaseVersion) {
+            // Base version - always enabled
+            const scanBtn = document.getElementById('scan-btn');
+            if (scanBtn) scanBtn.disabled = false;
+            if (elements.manualSearch) elements.manualSearch.disabled = false;
+            return;
         }
-        return false;
+
+        // Free version - apply limit
+        if (dailyCount >= DAILY_LIMIT) {
+            const scanBtn = document.getElementById('scan-btn');
+            if (scanBtn) scanBtn.disabled = true;
+            if (elements.manualSearch) elements.manualSearch.disabled = true;
+            showMessage("Daily sales limit reached (Free version).\n\nUpgrade to Base for unlimited sales.");
+        } else {
+            const scanBtn = document.getElementById('scan-btn');
+            if (scanBtn) scanBtn.disabled = false;
+            if (elements.manualSearch) elements.manualSearch.disabled = false;
+        }
     }
 
     // ====================== MODAL SYSTEM ======================
@@ -983,6 +993,45 @@
         `).join('');
         const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
         elements.grandTotal.textContent = 'R' + total.toFixed(2);
+    }
+
+    function handleManualSearch(val) {
+        if (!val || val.length < 2) {
+            if (elements.searchResults) elements.searchResults.style.display = 'none';
+            return;
+        }
+
+        const lower = val.toLowerCase();
+        const normalized = normalizeBarcode(val);
+
+        const filtered = inventory.filter(i => 
+            (i.name || '').toLowerCase().includes(lower) || 
+            normalizeBarcode(i.barcode) === normalized
+        );
+
+        if (elements.searchResults) {
+            elements.searchResults.innerHTML = filtered.map(item => `
+                <div class="search-row" onclick="selectItemFromSearch('${String(item.barcode)}')">
+                    ${item.name} (${item.barcode})
+                </div>
+            `).join('');
+
+            elements.searchResults.style.display = filtered.length ? 'block' : 'none';
+        }
+    }
+
+    function selectItemFromSearch(barcode) {
+        const item = inventory.find(i => normalizeBarcode(i.barcode) === normalizeBarcode(barcode));
+        if (item) {
+            showQuantityModal(item);
+            // Clear search after selection
+            if (elements.manualSearch) {
+                elements.manualSearch.value = '';
+            }
+            if (elements.searchResults) {
+                elements.searchResults.style.display = 'none';
+            }
+        }
     }
 
     function removeFromCart(idx) {
