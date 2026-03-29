@@ -283,10 +283,15 @@
 </div>
 
 <script>
+    
     // ====================== CONFIG ======================
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxolWQptu1bI0dOm3AVPt254doF0NB6mjfk4KbxwrvzzRSnTLLUgph2ZNwNcDDlJxKusg/exec";
-    const DAILY_LIMIT = 100;
     const MAX_CATEGORIES = 15;
+
+    // ====================== VERSION CONTROL ======================
+    let isBaseVersion = false;           // Default = Free
+    const DAILY_LIMIT = 100;             // Only applies in Free mode
+    
 
     // ====================== UTILITY ======================
     function normalizeBarcode(barcode) {
@@ -350,15 +355,15 @@
     }
 
     function checkDailyLimit() {
-        if (!isBaseVersion && dailyCount >= DAILY_LIMIT) {
-            const scanBtn = document.getElementById('scan-btn');
-            if (scanBtn) scanBtn.disabled = true;
-            if (elements.manualSearch) elements.manualSearch.disabled = true;
-        } else {
-            const scanBtn = document.getElementById('scan-btn');
-            if (scanBtn) scanBtn.disabled = false;
-            if (elements.manualSearch) elements.manualSearch.disabled = false;
+        if (isBaseVersion) return;   // Base version has no limit
+
+        if (dailyCount >= DAILY_LIMIT) {
+            showMessage("Daily sales limit reached in Free version.\n\nPlease upgrade to Base for unlimited sales.", () => {
+                showUpgradeModal();
+            });
+            return true;
         }
+        return false;
     }
 
     // ====================== MODAL SYSTEM ======================
@@ -454,19 +459,23 @@
         modal.style.display = 'flex';
     }
 
-    function enterActivationCode() {
-        closeModal();
-        const modal = document.getElementById('custom-modal');
-        document.getElementById('modal-title').textContent = "Activate Base Version";
-        document.getElementById('modal-body').innerHTML = `
-            <p>Enter your activation code:</p>
-            <input type="text" id="activation-input" class="modal-input" placeholder="BASE-XXXX-XXXX" style="text-transform:uppercase;">
-        `;
-        document.getElementById('modal-buttons').innerHTML = `
-            <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-save" onclick="activateBaseVersion()">Activate</button>
-        `;
-        modal.style.display = 'flex';
+    function activateBaseVersion() {
+        const code = document.getElementById('activation-input').value.trim().toUpperCase();
+        
+        if (code && code.length > 8) {   // Simple check - you can make it stricter later
+            isBaseVersion = true;
+            localStorage.setItem('isBaseVersion', 'true');
+            closeModal();
+            
+            showMessage("✅ Base Version Activated Successfully!", () => {
+                hideBetaBanner();
+                updateImportMasterButton();
+                checkDailyLimit();        // This will now allow unlimited sales
+                showMessage("All Base features are now unlocked. Enjoy!");
+            });
+        } else {
+            showMessage("Invalid activation code. Please try again or contact support.");
+        }
     }
 
     function activateBaseVersion() {
@@ -493,16 +502,16 @@
 
     function updateImportMasterButton() {
         const btn = document.getElementById('import-master-btn');
-        if (btn) {
-            if (isBaseVersion) {
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                btn.textContent = "Import Master Products";
-            } else {
-                btn.disabled = true;
-                btn.style.opacity = "0.6";
-                btn.textContent = "Import Master Products (Base only)";
-            }
+        if (!btn) return;
+
+        if (isBaseVersion) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.textContent = "Import Master Products";
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = "0.6";
+            btn.textContent = "Import Master Products (Base only)";
         }
     }
 
@@ -1421,7 +1430,7 @@
         dailyCount = parseInt(localStorage.getItem(todayKey) || '0');
         updateDailyDisplay();
         checkDailyLimit();
-        
+        updtaeImportMasterButton();
         populateCategoryDropdown();
         loadCategoriesFromSheet();
 
@@ -1434,7 +1443,7 @@
 
         
         updateSyncButton();
-        updateImportMasterButton();
+        
     };
 
     // ====================== PWA SUPPORT ======================
