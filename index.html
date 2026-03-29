@@ -257,13 +257,11 @@
         <button class="btn" style="background:#334155; color:white;" onclick="saveUserSheetURL()">Save My Sheet & Sync</button>
         <button class="btn btn-gray" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
         
-        <!-- Import Master Products - only in Base mode -->
         <button id="import-master-btn" class="btn btn-save" onclick="importMasterProducts()" 
                 style="margin-top:12px;">
             Import Master Products
         </button>
 
-        <!-- Upgrade Button -->
         <button id="upgrade-btn" class="btn btn-upgrade" onclick="showUpgradeModal()" style="margin-top:20px;">
             ⭐ Upgrade to Base Version - R349
         </button>
@@ -323,7 +321,7 @@
     let floatKey = 'tuckshop_starting_float_' + new Date().toDateString();
     let hasPendingSync = false;
 
-    let isBaseVersion = false;   // Base upgrade flag
+    let isBaseVersion = false;
 
     const elements = {
         manualSearch: document.getElementById('manual-search'),
@@ -422,10 +420,7 @@
                 ? parseFloat(inputEl.value) || 0 
                 : parseInt(inputEl.value) || 1;
 
-            // Clean the number to avoid floating point issues
-            if (isMoney) {
-                value = Math.round(value * 100) / 100;
-            }
+            if (isMoney) value = Math.round(value * 100) / 100;
 
             closeModal();
             onSubmit(value);
@@ -996,13 +991,15 @@
         });
     }
 
+    // ====================== FIXED CHECKOUT WITH CENTS MATH ======================
     async function checkout() {
         if (!cart.length) return;
 
         const completeBtn = document.querySelector('#sale-tab .btn-save');
         if (completeBtn) completeBtn.disabled = true;
 
-        const total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        let total = cart.reduce((s, i) => s + (Number(i.price) * i.qty), 0);
+        total = Math.round(total * 100) / 100;   // ← clean cents
 
         showPrompt(`Total: R${total.toFixed(2)}\n\nEnter cash received (R):`, 
                    total.toFixed(2), 
@@ -1014,6 +1011,7 @@
                 if (completeBtn) completeBtn.disabled = false;
                 return;
             }
+            cash = Math.round(cash * 100) / 100;   // ← clean cents
 
             if (cash < total) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
@@ -1056,10 +1054,10 @@
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
             });
-        });
+        }, true);   // ← isMoney = true (critical)
     }
-    
-    // ====================== MANUAL SYNC BUTTON ======================
+
+    // ====================== SYNC BUTTON ======================
     function updateSyncButton() {
         const syncBtn = document.getElementById('sync-btn');
         if (syncBtn) {
@@ -1194,7 +1192,6 @@
         }
     }
 
-    // Import Master Products - only allowed in Base mode
     async function importMasterProducts() {
         if (!isBaseVersion) {
             showMessage("Import Master Products is available only in the Base version.<br><br>Please upgrade for R349.");
@@ -1262,7 +1259,7 @@
         } catch (e) {}
     }
 
-    // ====================== SCANNER (html5-qrcode) ======================
+    // ====================== SCANNER ======================
     let html5QrCode = null;
     let lastScanTime = 0;
     const SCAN_COOLDOWN_MS = 2000;
@@ -1347,7 +1344,6 @@
         }
     }
 
-    // ====================== AUTO-FILL & SEARCH ======================
     function autoFillFromBarcode(inputValue) {
         if (inputValue.length < 3) return;
         const normalized = normalizeBarcode(inputValue);
@@ -1431,9 +1427,8 @@
         updateSyncButton();
     };
 
-    // ====================== PWA INSTALL & FULL-SCREEN SUPPORT ======================
+    // ====================== PWA SUPPORT ======================
     let deferredPrompt = null;
-
     const installBanner = document.getElementById('install-banner');
     const installBtn = document.getElementById('install-btn');
 
@@ -1444,8 +1439,6 @@
             document.referrer.includes('android-app') ||
             window.location.href.includes('?standalone');
 
-        console.log('Display mode check - Standalone:', isStandalone);
-
         if (isStandalone && installBanner) {
             installBanner.style.display = 'none';
         } else if (installBanner) {
@@ -1454,59 +1447,34 @@
     }
 
     window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('✅ beforeinstallprompt fired - ready for custom install');
         e.preventDefault();
         deferredPrompt = e;
-        
-        if (installBanner) {
-            installBanner.style.display = 'block';
-        }
+        if (installBanner) installBanner.style.display = 'block';
     });
 
     if (installBtn) {
         installBtn.addEventListener('click', async () => {
-            if (!deferredPrompt) {
-                showMessage("Install may not be available on this device.<br><br>" +
-                            "Try these steps:<br>" +
-                            "• On Chrome: Tap menu (⋮) → 'Install app'<br>" +
-                            "• On laptop: Use Chrome menu → 'Install Tuckshop POS...'", 
-                            () => {});
-                return;
-            }
-
+            if (!deferredPrompt) return;
             installBtn.disabled = true;
             installBtn.textContent = "Installing...";
-
             try {
-                const result = await deferredPrompt.prompt();
-                console.log('Install prompt outcome:', result.outcome);
-            } catch (err) {
-                console.error('Install prompt error:', err);
-            }
-
+                await deferredPrompt.prompt();
+            } catch (err) {}
             deferredPrompt = null;
             installBtn.disabled = false;
             installBtn.textContent = "Add to Home Screen";
-
             if (installBanner) installBanner.style.display = 'none';
         });
     }
 
     window.addEventListener('appinstalled', () => {
-        console.log('🎉 Tuckshop POS was successfully installed!');
-        if (installBanner) {
-            installBanner.style.display = 'none';
-        }
+        if (installBanner) installBanner.style.display = 'none';
         deferredPrompt = null;
     });
 
     window.addEventListener('load', () => {
         checkDisplayMode();
-        
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-            console.log('Display mode changed to:', e.matches ? 'standalone' : 'browser');
-            checkDisplayMode();
-        });
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', checkDisplayMode);
     });
 </script>
 </body>
