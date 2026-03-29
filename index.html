@@ -428,7 +428,7 @@
         showCustomModal(modalContent);
     }
 
-     function activateBaseVersion() {
+    function activateBaseVersion() {
         const email = document.getElementById('activation-email').value.trim().toLowerCase();
         const code = document.getElementById('activation-input').value.trim().toUpperCase();
 
@@ -437,7 +437,6 @@
             return;
         }
 
-        // Call Apps Script for validation
         fetch(APPS_SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -458,16 +457,16 @@
                 showMessage("✅ Base Version Activated Successfully!", () => {
                     hideBetaBanner();
                     updateImportMasterButton();
+                    hideUpgradeButtons();     // ← ADD THIS LINE
                     checkDailyLimit();
-                    location.reload();   // Clean refresh to apply changes
+                    location.reload();
                 });
             } else {
                 showMessage("Invalid activation code for this email.\n\nPlease double-check the code.");
             }
         })
-        .catch(err => {
-            console.error(err);
-            showMessage("Connection error. Please check your internet and try again.");
+        .catch(() => {
+            showMessage("Connection error. Please try again.");
         });
     }
 
@@ -558,6 +557,18 @@
             btn.style.opacity = "0.6";
             btn.textContent = "Import Master Products (Base only)";
         }
+    }
+
+
+    // Hide upgrade buttons after successful activation
+    function hideUpgradeButtons() {
+        // Hide button in Sale tab
+        const saleUpgradeBtn = document.querySelector('#sale-tab .btn-upgrade');
+        if (saleUpgradeBtn) saleUpgradeBtn.style.display = 'none';
+
+        // Hide button in Settings tab
+        const settingsUpgradeBtn = document.getElementById('upgrade-btn');
+        if (settingsUpgradeBtn) settingsUpgradeBtn.style.display = 'none';
     }
 
     function showMigrationGuide() {
@@ -1515,6 +1526,7 @@
         isBaseVersion = localStorage.getItem('isBaseVersion') === 'true';
         if (isBaseVersion) {
             hideBetaBanner();
+            hideUpgradeButtons();     // ← ADD THIS LINE
         }
 
         loadSettings();
