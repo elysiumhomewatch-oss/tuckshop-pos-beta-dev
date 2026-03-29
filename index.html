@@ -669,15 +669,15 @@
         if (isBaseVersion) {
             dailyCount++;
         } else {
-            // Count number of different items/lines in the cart (not quantity)
+            // Count each different item (line) in the cart — not the quantity
             const uniqueLines = cart.length;
             dailyCount = Math.min(dailyCount + uniqueLines, DAILY_LIMIT);
         }
         localStorage.setItem(todayKey, dailyCount);
         updateDailyDisplay();
-        updateScansLeftDisplay();     // ← This was missing
+        updateScansLeftDisplay();     // This must be called
         checkDailyLimit();
-    }
+    }}
 
     function decrementDailyCount() {
         dailyCount = Math.max(0, dailyCount - 1);
