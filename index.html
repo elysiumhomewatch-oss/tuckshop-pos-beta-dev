@@ -418,13 +418,13 @@
 
         document.getElementById('prompt-ok').onclick = () => {
             const inputEl = document.getElementById('modal-input');
-            let value;
+            let value = isMoney 
+                ? parseFloat(inputEl.value) || 0 
+                : parseInt(inputEl.value) || 1;
 
+            // Clean the number to avoid floating point issues
             if (isMoney) {
-                value = parseFloat(inputEl.value) || 0;
-                value = Math.round(value * 100) / 100;   // Ensure clean cents
-            } else {
-                value = parseInt(inputEl.value) || 1;
+                value = Math.round(value * 100) / 100;
             }
 
             closeModal();
