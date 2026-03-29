@@ -257,6 +257,7 @@
         <button class="btn" style="background:#334155; color:white;" onclick="saveUserSheetURL()">Save My Sheet & Sync</button>
         <button class="btn btn-gray" onclick="fetchInventoryFromSheet()">Refresh Inventory from Sheet</button>
         
+        <!-- Import Master Products - only enabled in Base mode -->
         <button id="import-master-btn" class="btn btn-save" onclick="importMasterProducts()" 
                 style="margin-top:12px;">
             Import Master Products
@@ -477,7 +478,7 @@
             showMessage("✅ Base Version activated!", () => {
                 hideBetaBanner();
                 checkDailyLimit();
-                updateImportMasterButton();
+                updateImportMasterButton();   // ← Make sure this line is here
                 showMigrationGuide();
             });
         } else {
@@ -1058,10 +1059,18 @@
     }
 
     // ====================== SYNC BUTTON ======================
-    function updateSyncButton() {
-        const syncBtn = document.getElementById('sync-btn');
-        if (syncBtn) {
-            syncBtn.style.display = hasPendingSync ? 'block' : 'none';
+    function updateImportMasterButton() {
+        const btn = document.getElementById('import-master-btn');
+        if (btn) {
+            if (isBaseVersion) {
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                btn.textContent = "Import Master Products";
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = "0.6";
+                btn.textContent = "Import Master Products (Base only)";
+            }
         }
     }
 
@@ -1423,8 +1432,9 @@
             }
         }); 
 
-        updateImportMasterButton();
+        
         updateSyncButton();
+        updateImportMasterButton();
     };
 
     // ====================== PWA SUPPORT ======================
