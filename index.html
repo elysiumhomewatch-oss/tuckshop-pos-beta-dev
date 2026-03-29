@@ -1001,8 +1001,7 @@
                 return;
             }
 
-            // Reliable comparison with small tolerance for floating point issues
-            if (cash < total - 0.005) {
+            if (cash < total) {
                 showMessage(`Not enough cash received!\n\nTotal is R${total.toFixed(2)}`);
                 if (completeBtn) completeBtn.disabled = false;
                 return;
@@ -1045,7 +1044,7 @@
             });
         });
     }
-
+    
     // ====================== MANUAL SYNC BUTTON ======================
     function updateSyncButton() {
         const syncBtn = document.getElementById('sync-btn');
