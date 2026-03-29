@@ -1204,11 +1204,12 @@
 
             // SUCCESS - increment daily count based on number of unique lines
             showMessage(`✅ Sale Complete!\n\nTotal: R${total.toFixed(2)}\nCash: R${cash.toFixed(2)}\nChange: R${change.toFixed(2)}\n\nThank you!`, () => {
+                incrementDailyCount();   // This should now work correctly
                 cart = [];
                 renderCart();
                 if (completeBtn) completeBtn.disabled = false;
                 
-                incrementDailyCount();   // This should now work correctly
+                
             });
         }, true);
     }
